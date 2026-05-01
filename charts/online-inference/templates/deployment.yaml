@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: { { include "online-inference.fullname" . } }
+  labels: { { - include "online-inference.labels" . | nindent 4 } }
+spec:
+  replicas: { { .Values.replicaCount } }
+  selector:
+    matchLabels:
+      { { - include "online-inference.selectorLabels" . | nindent 6 } }
+  template:
+    metadata:
+      labels: { { - include "online-inference.selectorLabels" . | nindent 8 } }
+      annotations: { { - toYaml .Values.podAnnotations | nindent 8 } }
+    spec:
+      containers:
+        - name: { { .Chart.Name } }
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: { { .Values.image.pullPolicy } }
+          ports:
+            - containerPort: { { .Values.service.targetPort } }
+          env:
+            - name: REDIS_HOST
+              value: { { .Values.redis.host | quote } }
+            - name: REDIS_PORT
+              value: { { .Values.redis.port | quote } }
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: { { .Values.otel.endpoint | quote } }
+          resources: { { - toYaml .Values.resources | nindent 12 } }
+          readinessProbe: { { - toYaml .Values.readinessProbe | nindent 12 } }
+          livenessProbe: { { - toYaml .Values.livenessProbe | nindent 12 } }
+
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: {{ include "onlineinference.name" . }}
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: {{ include "onlineinference.name" . }}
+#   template:
+#     metadata:
+#       labels:
+#         app: {{ include "onlineinference.name" . }}
+#     spec:
+#       containers:
+#         - name: inference-api
+#           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+#           imagePullPolicy: {{ .Values.image.pullPolicy }}
+#           ports:
+#             - containerPort: 8080
+#           envFrom:
+#             - configMapRef:
+#                 name: {{ include "onlineinference.name" . }}-env
+#           resources:
+#             requests:
+#               cpu: {{ .Values.resources.requests.cpu | quote }}
+#               memory: {{ .Values.resources.requests.memory | quote }}
+#             limits:
+#               cpu: {{ .Values.resources.limits.cpu | quote }}
+#               memory: {{ .Values.resources.limits.memory | quote }}
+#           readinessProbe:
+#             httpGet:
+#               path: /healthz
+#               port: 8080
+#             initialDelaySeconds: 3
+#             periodSeconds: 5
+#           livenessProbe:
+#             httpGet:
+#               path: /healthz
+#               port: 8080
+#             initialDelaySeconds: 10
+#             periodSeconds: 10

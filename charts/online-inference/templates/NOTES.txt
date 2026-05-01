@@ -1,0 +1,12 @@
+Inference API installed.
+
+Port-forward:
+  kubectl port-forward svc/online-inference 8080:80
+
+To run a prediction:
+  curl -X POST http://localhost:8080/infer \
+    -H "Content-Type: application/json" \
+    -d '{"userId":"123","itemId":"abc"}'
+
+Run a load test:
+  BASE_URL=http://localhost:8080 k6 run load/k6.js

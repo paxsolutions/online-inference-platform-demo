@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference-api
+  namespace: inference
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: inference-api }
+  template:
+    metadata:
+      labels: { app: inference-api }
+    spec:
+      containers:
+        - name: inference-api
+          image: inference-api:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: APP_NAME
+              value: inference-api
+            - name: REDIS_URL
+              value: redis://redis:6379/0
+            - name: CACHE_TTL_SECONDS
+              value: "60"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-collector:4318/v1/traces
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inference-api
+  namespace: inference
+spec:
+  selector: { app: inference-api }
+  ports:
+    - port: 80
+      targetPort: 8080

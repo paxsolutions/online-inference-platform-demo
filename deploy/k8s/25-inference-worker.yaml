@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference-worker
+  namespace: inference
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: inference-worker }
+  template:
+    metadata:
+      labels: { app: inference-worker }
+    spec:
+      containers:
+        - name: inference-worker
+          image: inference-worker:local
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: APP_NAME
+              value: inference-worker
+            - name: REDIS_URL
+              value: redis://redis:6379/0
+            - name: QUEUE_NAME
+              value: inference:queue
+            - name: RESULT_TTL_SECONDS
+              value: "600"
+            - name: METRICS_PORT
+              value: "9100"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-collector:4318/v1/traces
+          ports:
+            - containerPort: 9100
