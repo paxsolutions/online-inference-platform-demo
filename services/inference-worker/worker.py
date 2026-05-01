@@ -6,7 +6,6 @@ import time
 import redis
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.instrumentation.redis import RedisInstrumentor
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -29,7 +28,6 @@ def setup_tracing():
     if OTEL_EXPORTER_OTLP_ENDPOINT:
         exporter = OTLPSpanExporter(endpoint=OTEL_EXPORTER_OTLP_ENDPOINT)
         provider.add_span_processor(BatchSpanProcessor(exporter))
-    RedisInstrumentor().instrument()
 
 def simulate_inference():
     time.sleep(random.uniform(0.04, 0.08))

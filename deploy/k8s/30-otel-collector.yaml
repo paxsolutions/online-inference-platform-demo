@@ -11,8 +11,8 @@ data:
           http:
             endpoint: 0.0.0.0:4318
     exporters:
-      jaeger:
-        endpoint: jaeger:14250
+      otlp/jaeger:
+        endpoint: jaeger:4317
         tls:
           insecure: true
     processors:
@@ -22,7 +22,7 @@ data:
         traces:
           receivers: [otlp]
           processors: [batch]
-          exporters: [jaeger]
+          exporters: [otlp/jaeger]
 ---
 apiVersion: apps/v1
 kind: Deployment

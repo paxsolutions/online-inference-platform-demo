@@ -10,8 +10,6 @@ import redis
 from fastapi import FastAPI, HTTPException, Request
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.instrumentation.redis import RedisInstrumentor
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -39,7 +37,6 @@ def _setup_tracing() -> None:
         exporter = OTLPSpanExporter(endpoint=OTEL_EXPORTER_OTLP_ENDPOINT)
         provider.add_span_processor(BatchSpanProcessor(exporter))
 
-    RedisInstrumentor().instrument()
 
 _setup_tracing()
 tracer = trace.get_tracer(APP_NAME)
@@ -47,8 +44,6 @@ tracer = trace.get_tracer(APP_NAME)
 r = redis.Redis.from_url(REDIS_URL, decode_responses=True)
 
 app = FastAPI(title="Online Inference Demo", version="1.1.0")
-FastAPIInstrumentor.instrument_app(app)
-
 @app.get("/healthz")
 def healthz() -> Dict[str, Any]:
     try:
