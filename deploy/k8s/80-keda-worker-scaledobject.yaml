@@ -1,0 +1,18 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: inference-worker-redis-queue
+  namespace: inference
+spec:
+  scaleTargetRef:
+    name: inference-worker
+  pollingInterval: 5 # seconds between checks
+  cooldownPeriod: 30 # seconds to wait before scaling down
+  minReplicaCount: 0 # scale to zero when queue is empty
+  maxReplicaCount: 10
+  triggers:
+    - type: redis
+      metadata:
+        address: redis.inference.svc.cluster.local:6379
+        listName: inference:queue
+        listLength: "5" # scale out when queue length exceeds this

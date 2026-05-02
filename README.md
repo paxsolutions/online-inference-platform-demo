@@ -98,3 +98,7 @@ kubectl -n inference get hpa -w
 helm lint charts/online-inference
 helm install inference charts/online-inference -n inference --create-namespace
 ```
+
+## Autoscaling
+
+Worker scales with KEDA based on Redis queue length, including scale-to-zero.
