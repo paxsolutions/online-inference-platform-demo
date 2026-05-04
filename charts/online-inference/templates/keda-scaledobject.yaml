@@ -1,0 +1,19 @@
+{{- if and .Values.keda.enabled .Values.worker.enabled }}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ .Values.worker.name }}-redis-queue
+spec:
+  scaleTargetRef:
+    name: {{ .Values.worker.name }}
+  pollingInterval: {{ .Values.keda.pollingInterval }}
+  cooldownPeriod: {{ .Values.keda.cooldownPeriod }}
+  minReplicaCount: {{ .Values.keda.minReplicaCount }}
+  maxReplicaCount: {{ .Values.keda.maxReplicaCount }}
+  triggers:
+    - type: redis
+      metadata:
+        address: {{ .Values.keda.redis.address | quote }}
+        listName: {{ .Values.keda.redis.listName | quote }}
+        listLength: {{ .Values.keda.redis.listLength | quote }}
+{{- end }}

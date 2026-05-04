@@ -1,0 +1,25 @@
+{{- if .Values.prometheus.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: {{ .Values.prometheus.scrapeInterval | default "5s" }}
+
+    scrape_configs:
+      - job_name: "inference-api"
+        metrics_path: /metrics
+        static_configs:
+          - targets:
+              - "online-inference:{{ .Values.service.port }}"
+
+{{- if .Values.worker.enabled }}
+      - job_name: "inference-worker"
+        metrics_path: /metrics
+        static_configs:
+          - targets:
+              - "{{ .Values.worker.name }}:{{ .Values.worker.env.METRICS_PORT }}"
+{{- end }}
+{{- end }}

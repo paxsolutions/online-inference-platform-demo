@@ -55,3 +55,35 @@ podAnnotations:
   prometheus.io/scrape: "true"
   prometheus.io/port: "8080"
   prometheus.io/path: /metrics
+
+worker:
+  enabled: true
+  name: inference-worker
+  image:
+    repository: inference-worker
+    tag: local
+    pullPolicy: IfNotPresent
+  env:
+    REDIS_URL: redis://redis:6379/0
+    QUEUE_NAME: inference:queue
+    RESULT_TTL_SECONDS: "600"
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
+    METRICS_PORT: "9100"
+
+keda:
+  enabled: true
+  pollingInterval: 5
+  cooldownPeriod: 30
+  minReplicaCount: 0
+  maxReplicaCount: 10
+  redis:
+    address: redis:6379
+    listName: inference:queue
+    listLength: "5"
+
+prometheus:
+  enabled: true
+  scrapeInterval: 5s
+  service:
+    name: prometheus
+    port: 9090

@@ -1,0 +1,35 @@
+{{- if .Values.worker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.worker.name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.worker.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.worker.name }}
+    spec:
+      containers:
+        - name: inference-worker
+          image: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
+          imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
+          env:
+            - name: APP_NAME
+              value: inference-worker
+            - name: REDIS_URL
+              value: {{ .Values.worker.env.REDIS_URL | quote }}
+            - name: QUEUE_NAME
+              value: {{ .Values.worker.env.QUEUE_NAME | quote }}
+            - name: RESULT_TTL_SECONDS
+              value: {{ .Values.worker.env.RESULT_TTL_SECONDS | quote }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.worker.env.OTEL_EXPORTER_OTLP_ENDPOINT | quote }}
+            - name: METRICS_PORT
+              value: {{ .Values.worker.env.METRICS_PORT | quote }}
+          ports:
+            - containerPort: {{ .Values.worker.env.METRICS_PORT | int }}
+{{- end }}

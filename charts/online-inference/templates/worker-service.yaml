@@ -1,0 +1,12 @@
+{{- if .Values.worker.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.worker.name }}
+spec:
+  selector:
+    app: {{ .Values.worker.name }}
+  ports:
+    - port: {{ .Values.worker.env.METRICS_PORT | int }}
+      targetPort: {{ .Values.worker.env.METRICS_PORT | int }}
+{{- end }}

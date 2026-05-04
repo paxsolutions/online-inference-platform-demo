@@ -1,0 +1,30 @@
+{{- if .Values.prometheus.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.prometheus.service.name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.prometheus.service.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.prometheus.service.name }}
+    spec:
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.55.0
+          args:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+          ports:
+            - containerPort: {{ .Values.prometheus.service.port }}
+          volumeMounts:
+            - name: cfg
+              mountPath: /etc/prometheus
+      volumes:
+        - name: cfg
+          configMap:
+            name: prometheus-config
+{{- end }}

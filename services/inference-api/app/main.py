@@ -7,7 +7,7 @@ import uuid
 from typing import Any, Dict
 
 import redis
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
@@ -53,8 +53,8 @@ def healthz() -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"redis_unhealthy: {e}")
 
 @app.get("/metrics")
-def metrics():
-    return generate_latest(), 200, {"Content-Type": CONTENT_TYPE_LATEST}
+def metrics() -> Response:
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 def _hash_payload(payload: Dict[str, Any]) -> str:
     raw = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
