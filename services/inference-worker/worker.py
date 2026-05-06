@@ -10,6 +10,13 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from prometheus_client import Counter, Histogram, start_http_server
+from transformers import pipeline
+
+_model = pipeline(
+    "ner",
+    model="dslim/bert-base-NER",
+    aggregation_strategy="simple"
+)
 
 APP_NAME = os.getenv("APP_NAME", "inference-worker")
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
@@ -22,6 +29,7 @@ JOBS = Counter("worker_jobs_total", "Jobs processed", ["status"])
 JOB_TIME = Histogram("worker_job_processing_seconds", "Job processing seconds")
 
 def setup_tracing():
+    """Setup OpenTelemetry tracing."""
     resource = Resource.create({"service.name": APP_NAME})
     provider = TracerProvider(resource=resource)
     trace.set_tracer_provider(provider)
@@ -29,12 +37,24 @@ def setup_tracing():
         exporter = OTLPSpanExporter(endpoint=OTEL_EXPORTER_OTLP_ENDPOINT)
         provider.add_span_processor(BatchSpanProcessor(exporter))
 
-def simulate_inference():
-    time.sleep(random.uniform(0.04, 0.08))
-    score = round(random.random(), 6)
-    return {"score": score, "model": "demo-v1", "ts": int(time.time())}
+def run_inference(payload: dict) -> dict:
+    """Run NER inference and return grouped entities."""
+    text = payload.get("text", "")
+    entities = _model(text)
+    return {
+        "entities": [
+            {
+                "text": e["word"],
+                "label": e["entity_group"],
+                "score": round(float(e["score"]), 4),
+            }
+            for e in entities
+        ],
+        "model": "bert-base-NER",
+    }
 
 def main():
+    """Main worker loop."""
     setup_tracing()
     tracer = trace.get_tracer(APP_NAME)
     r = redis.Redis.from_url(REDIS_URL, decode_responses=True)
@@ -60,7 +80,8 @@ def main():
                 span.set_attribute("queue.name", QUEUE_NAME)
                 span.set_attribute("job.id", job_id)
 
-                result = simulate_inference()
+                result = run_inference(payload)
+                span.set_attribute("model.entity_count", len(result["entities"]))
                 result["input"] = payload  # helpful for demo visibility
 
                 r.setex(f"infer:result:{job_id}", RESULT_TTL_SECONDS, json.dumps(result))

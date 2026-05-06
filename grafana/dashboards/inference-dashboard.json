@@ -116,19 +116,19 @@
       "targets": [
         {
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "expr": "histogram_quantile(0.50, rate(inference_request_duration_seconds_bucket[1m]))",
+          "expr": "histogram_quantile(0.50, sum(rate(inference_request_latency_seconds_bucket{endpoint=\"/infer\"}[1m])) by (le))",
           "legendFormat": "p50",
           "refId": "A"
         },
         {
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "expr": "histogram_quantile(0.95, rate(inference_request_duration_seconds_bucket[1m]))",
+          "expr": "histogram_quantile(0.95, sum(rate(inference_request_latency_seconds_bucket{endpoint=\"/infer\"}[1m])) by (le))",
           "legendFormat": "p95",
           "refId": "B"
         },
         {
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "expr": "histogram_quantile(0.99, rate(inference_request_duration_seconds_bucket[1m]))",
+          "expr": "histogram_quantile(0.99, sum(rate(inference_request_latency_seconds_bucket{endpoint=\"/infer\"}[1m])) by (le))",
           "legendFormat": "p99",
           "refId": "C"
         }
@@ -179,7 +179,7 @@
       "targets": [
         {
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "expr": "rate(inference_cache_hits_total[1m]) / (rate(inference_cache_hits_total[1m]) + rate(inference_cache_misses_total[1m]))",
+          "expr": "sum(rate(inference_request_latency_seconds_count{endpoint=\"/infer\",cache_hit=\"true\"}[1m])) / sum(rate(inference_request_latency_seconds_count{endpoint=\"/infer\"}[1m]))",
           "legendFormat": "hit rate",
           "refId": "A"
         }

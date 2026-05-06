@@ -7,6 +7,15 @@ A production-pattern demo of a real-time ML inference platform. It covers the fu
 ## Architecture
 
 ```mermaid
+---
+config:
+  theme: neo-dark
+  look: neo
+  fontFamily: '''Recursive Variable'', sans-serif'
+  themeVariables:
+    fontFamily: '''Recursive Variable'', sans-serif'
+---
+
 flowchart LR
     Client(["HTTP Client"])
 
@@ -93,38 +102,64 @@ curl http://localhost:8080/healthz
 
 ---
 
-### `POST /infer` — Synchronous inference
+### `POST /infer` — Synchronous NER inference
 
-Hashes the request payload and checks Redis. On a cache miss the model is simulated (40–80 ms latency) and the result is cached for 60 seconds.
+Hashes the request payload (`text` field) and checks Redis. On a cache miss, runs **Named Entity Recognition** with `dslim/bert-base-NER` and caches the result for 60 seconds. Identical inputs resolve from Redis in < 5 ms.
 
 ```bash
 curl -s -X POST http://localhost:8080/infer \
   -H "Content-Type: application/json" \
-  -d '{"userId":"u1","itemId":"i42"}' | jq
+  -d '{"text": "Carl Sagan was an American scientist and science communicator. Initially an assistant professor at Harvard, Sagan later moved to Cornell, where he was the David Duncan Professor of Astronomy and Space Sciences. He was born on November 9, 1934 in New York City"}' | jq
 ```
 
-**First call (cache miss):**
+**First call (cache miss — real inference):**
 ```json
-{"cache_hit": false, "result": {"score": 0.731245, "model": "demo-v1", "ts": 1714819200}}
+{
+  "cache_hit": false,
+  "result": {
+    "entities": [
+      {"text": "Carl Sagan", "label": "PER", "score": 0.9998},
+      {"text": "American",   "label": "MISC","score": 0.9871},
+      {"text": "Harvard",    "label": "ORG","score": 0.9752},
+      {"text": "Cornell",    "label": "ORG","score": 0.9634},
+      {"text": "November 9, 1934", "label": "DATE","score": 0.9512},
+      {"text": "New York City", "label": "LOC","score": 0.9401}
+    ],
+    "model": "bert-base-NER"
+  }
+}
 ```
 
-**Repeat identical call (cache hit):**
+**Repeat identical call (cache hit — Redis only):**
 ```json
-{"cache_hit": true, "result": {"score": 0.731245, "model": "demo-v1", "ts": 1714819200}}
+{
+  "cache_hit": true,
+  "result": {
+    "entities": [
+      {"text": "Carl Sagan", "label": "PER", "score": 0.9998},
+      {"text": "American",   "label": "MISC","score": 0.9871},
+      {"text": "Harvard",    "label": "ORG","score": 0.9752},
+      {"text": "Cornell",    "label": "ORG","score": 0.9634},
+      {"text": "November 9, 1934", "label": "DATE","score": 0.9512},
+      {"text": "New York City", "label": "LOC","score": 0.9401}
+    ],
+    "model": "bert-base-NER"
+  }
+}
 ```
 
-The `cache.hit` attribute is visible as a span tag in Jaeger.
+The `cache.hit` and `model.entity_count` attributes are both visible as span tags in Jaeger.
 
 ---
 
 ### `POST /enqueue` — Async job submission
 
-Pushes a job onto the `inference:queue` Redis list and returns a `job_id`. The worker picks it up via `BLPOP` and writes the result back to Redis.
+Pushes a job onto the `inference:queue` Redis list and returns a `job_id`. The worker picks it up via `BLPOP`, runs NER, and writes the result back to Redis.
 
 ```bash
 JOB=$(curl -s -X POST http://localhost:8080/enqueue \
   -H "Content-Type: application/json" \
-  -d '{"userId":"u1","itemId":"i99"}')
+  -d '{"text": "Carl Sagan was an American scientist and science communicator. Initially an assistant professor at Harvard, Sagan later moved to Cornell, where he was the David Duncan Professor of Astronomy and Space Sciences."}')
 
 echo $JOB
 # {"accepted": true, "job_id": "3f2a1b..."}
@@ -150,7 +185,18 @@ curl -s http://localhost:8080/result/$JOB_ID | jq
 {
   "ready": true,
   "job_id": "3f2a1b...",
-  "result": {"score": 0.512388, "model": "demo-v1", "ts": 1714819205, "input": {...}}
+  "result": {
+    "entities": [
+      {"text": "Carl Sagan", "label": "PER", "score": 0.9998},
+      {"text": "American",   "label": "MISC","score": 0.9871},
+      {"text": "Harvard",    "label": "ORG","score": 0.9752},
+      {"text": "Cornell",    "label": "ORG","score": 0.9634},
+      {"text": "November 9, 1934", "label": "DATE","score": 0.9512},
+      {"text": "New York City", "label": "LOC","score": 0.9401}
+    ],
+    "model": "bert-base-NER",
+    "input": {"text": "Carl Sagan was an American scientist and science communicator. Initially an assistant professor at Harvard, Sagan later moved to Cornell, where he was the David Duncan Professor of Astronomy and Space Sciences. He was born on November 9, 1934 in New York City"}
+  }
 }
 ```
 
@@ -215,6 +261,35 @@ It shows:
 - Cache hit rate over time
 - p95 and p50 latency histograms
 - Worker job throughput and error rate
+
+---
+
+## Unit Tests
+
+Tests live in `services/inference-api/tests/`. A `conftest.py` mocks the NER model and Redis at import time, so no model download or live Redis connection is needed.
+
+```bash
+# Rebuild the image first if you have made code changes
+docker compose build inference-api
+
+# Run tests inside the container (working directory is /app)
+docker compose run --rm inference-api pytest tests -v
+```
+
+Expected output when all tests pass:
+
+```
+tests/test_health.py::test_healthz_ok PASSED
+tests/test_health.py::test_metrics_returns_prometheus_text PASSED
+tests/test_health.py::test_infer_cache_miss_returns_ner_entities PASSED
+tests/test_health.py::test_infer_cache_hit_skips_model PASSED
+tests/test_health.py::test_infer_missing_text_returns_422 PASSED
+tests/test_health.py::test_infer_empty_body_returns_error PASSED
+tests/test_health.py::test_enqueue_returns_job_id PASSED
+tests/test_health.py::test_enqueue_calls_redis_rpush PASSED
+tests/test_health.py::test_result_pending_when_not_ready PASSED
+tests/test_health.py::test_result_complete_when_ready PASSED
+```
 
 ---
 
@@ -310,11 +385,19 @@ kubectl -n inference get hpa inference-api -w
 Scale-to-zero means the worker consumes no resources when there is no work. To observe scaling:
 
 ```bash
-# Flood the queue
+# Flood the queue with NER jobs
+SENTENCES=(
+  "Carl Edward Sagan was born on November 9, 1934, in the Bensonhurst neighborhood of New York City's Brooklyn borough."
+  "Dr. Jaap Haartsen, a Dutch engineer working for Ericsson, is credited with inventing Bluetooth technology in 1994."
+  "Linus Benedict Torvalds[a] (born 28 December 1969) is a Finnish and American software engineer who is the creator and lead developer of the Linux kernel since 1991. He also created the distributed version control system Git."
+  "Rollo, also known with his epithet, Rollo \"the Walker\", was a Viking who, as Count of Rouen, became the first ruler of Normandy, a region in today's northern France."
+  "Robert Leroy Johnson was an American blues singer, guitarist, and songwriter. Known as the \"King of the Delta Blues\" and the \"Grandfather of rock and roll\"."
+)
 for i in $(seq 1 50); do
+  TEXT="${SENTENCES[$((i % ${#SENTENCES[@]}))]}"
   curl -s -X POST http://localhost:8080/enqueue \
     -H "Content-Type: application/json" \
-    -d "{\"userId\":\"u$i\",\"itemId\":\"i$i\"}" > /dev/null
+    -d "$(jq -n --arg text "$TEXT" '{"text": $text}')" > /dev/null
 done
 
 kubectl -n inference get pods -l app=inference-worker -w

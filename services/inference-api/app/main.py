@@ -1,7 +1,6 @@
 import hashlib
 import json
 import os
-import random
 import time
 import uuid
 from typing import Any, Dict
@@ -14,6 +13,7 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+from transformers import pipeline
 
 APP_NAME = os.getenv("APP_NAME", "inference-api")
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
@@ -41,11 +41,23 @@ def _setup_tracing() -> None:
 _setup_tracing()
 tracer = trace.get_tracer(APP_NAME)
 
+_model = pipeline(
+    "ner",
+    model="dslim/bert-base-NER",
+    aggregation_strategy="simple"
+)
+
 r = redis.Redis.from_url(REDIS_URL, decode_responses=True)
 
 app = FastAPI(title="Online Inference Demo", version="1.1.0")
 @app.get("/healthz")
 def healthz() -> Dict[str, Any]:
+    """
+    Health check endpoint.
+
+    Returns:
+        Dict with health status and redis connection
+    """
     try:
         pong = r.ping()
         return {"ok": True, "redis": pong}
@@ -54,20 +66,58 @@ def healthz() -> Dict[str, Any]:
 
 @app.get("/metrics")
 def metrics() -> Response:
+    """
+    Prometheus metrics endpoint.
+
+    Returns:
+        Response with metrics in Prometheus text format
+    """
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 def _hash_payload(payload: Dict[str, Any]) -> str:
+    """
+    Hash payload for cache key.
+
+    Args:
+        payload: Input payload
+
+    Returns:
+        SHA256 hash of payload
+    """
     raw = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(raw).hexdigest()
 
-def _simulate_inference() -> Dict[str, Any]:
-    # cache miss latency simulation (40–80ms)
-    time.sleep(random.uniform(0.04, 0.08))
-    score = round(random.random(), 6)
-    return {"score": score, "model": "demo-v1", "ts": int(time.time())}
+# def _simulate_inference() -> Dict[str, Any]:
+#     # cache miss latency simulation (40–80ms)
+#     time.sleep(random.uniform(0.04, 0.08))
+#     score = round(random.random(), 6)
+#     return {"score": score, "model": "demo-v1", "ts": int(time.time())}
+
+def run_inference(text: str) -> Dict[str, Any]:
+    entities = _model(text)
+    return {
+        "entities": [
+            {
+                "text": e["word"],
+                "label": e["entity_group"],
+                "score": round(float(e["score"]), 4),
+            }
+            for e in entities
+        ],
+        "model": "bert-base-NER",
+    }
 
 @app.post("/infer")
 async def infer(request: Request) -> Dict[str, Any]:
+    """
+    Synchronous inference endpoint with cache-aside pattern.
+
+    Args:
+        request: HTTP request containing payload to infer on
+
+    Returns:
+        Dict with inference result and cache hit status
+    """
     start = time.time()
     try:
         payload = await request.json()
@@ -83,19 +133,35 @@ async def infer(request: Request) -> Dict[str, Any]:
                 REQS.labels(endpoint="/infer", status="200").inc()
                 return {"cache_hit": True, "result": json.loads(cached)}
 
-            result = _simulate_inference()
+            text = payload.get("text")
+            if not text:
+                raise HTTPException(status_code=422, detail="payload must include a 'text' field")
+
+            result = run_inference(text)
+            span.set_attribute("model.entity_count", len(result["entities"]))
             r.setex(key, CACHE_TTL_SECONDS, json.dumps(result))
 
             LATENCY.labels(endpoint="/infer", cache_hit="false").observe(time.time() - start)
             REQS.labels(endpoint="/infer", status="200").inc()
             return {"cache_hit": False, "result": result}
 
+    except HTTPException:
+        raise
     except Exception as e:
         REQS.labels(endpoint="/infer", status="500").inc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/enqueue")
 async def enqueue(request: Request) -> Dict[str, Any]:
+    """
+    Enqueue inference job to Redis queue.
+
+    Args:
+        request: HTTP request containing payload to enqueue
+
+    Returns:
+        Dict with job_id and acceptance status
+    """
     start = time.time()
     try:
         payload = await request.json()
@@ -113,12 +179,23 @@ async def enqueue(request: Request) -> Dict[str, Any]:
         REQS.labels(endpoint="/enqueue", status="202").inc()
         return {"accepted": True, "job_id": job_id}
 
+    except HTTPException:
+        raise
     except Exception as e:
         REQS.labels(endpoint="/enqueue", status="500").inc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/result/{job_id}")
 def get_result(job_id: str) -> Dict[str, Any]:
+    """
+    Get inference result by job_id.
+
+    Args:
+        job_id: Job ID to retrieve result for
+
+    Returns:
+        Dict with result status and data
+    """
     start = time.time()
     try:
         key = f"infer:result:{job_id}"
@@ -131,6 +208,8 @@ def get_result(job_id: str) -> Dict[str, Any]:
         LATENCY.labels(endpoint="/result", cache_hit="na").observe(time.time() - start)
         return {"ready": True, "job_id": job_id, "result": json.loads(val)}
 
+    except HTTPException:
+        raise
     except Exception as e:
         REQS.labels(endpoint="/result", status="500").inc()
         raise HTTPException(status_code=500, detail=str(e))
