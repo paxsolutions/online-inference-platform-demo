@@ -13,6 +13,7 @@ CACHED_RESULT = {
 # ---------------------------------------------------------------------------
 
 def test_healthz_ok(client, redis_mock):
+    """Test that the health check endpoint returns OK."""
     resp = client.get("/healthz")
     assert resp.status_code == 200
     body = resp.json()
@@ -25,6 +26,7 @@ def test_healthz_ok(client, redis_mock):
 # ---------------------------------------------------------------------------
 
 def test_metrics_returns_prometheus_text(client):
+    """Test that the metrics endpoint returns Prometheus text format."""
     resp = client.get("/metrics")
     assert resp.status_code == 200
     assert "text/plain" in resp.headers["content-type"]
@@ -37,6 +39,7 @@ def test_metrics_returns_prometheus_text(client):
 # ---------------------------------------------------------------------------
 
 def test_infer_cache_miss_returns_ner_entities(client, redis_mock):
+    """Test that a cache miss triggers model inference and returns NER entities."""
     redis_mock.get.return_value = None  # force cache miss
 
     resp = client.post("/infer", json={"text": "Carl Sagan studied at Harvard and Cornell."})
@@ -55,6 +58,7 @@ def test_infer_cache_miss_returns_ner_entities(client, redis_mock):
 
 
 def test_infer_cache_hit_skips_model(client, redis_mock):
+    """Test that a cache hit skips model inference and returns cached result."""
     redis_mock.get.return_value = json.dumps(CACHED_RESULT)  # warm cache
 
     resp = client.post("/infer", json={"text": "Carl Sagan studied at Harvard and Cornell."})
@@ -67,11 +71,13 @@ def test_infer_cache_hit_skips_model(client, redis_mock):
 
 
 def test_infer_missing_text_returns_422(client, redis_mock):
+    """Test that missing text field returns 422."""
     resp = client.post("/infer", json={"query": "no text field here"})
     assert resp.status_code == 422
 
 
 def test_infer_empty_body_returns_error(client):
+    """Test that an empty body returns an error."""
     resp = client.post("/infer", content=b"", headers={"Content-Type": "application/json"})
     assert resp.status_code in (400, 422, 500)
 
@@ -81,6 +87,7 @@ def test_infer_empty_body_returns_error(client):
 # ---------------------------------------------------------------------------
 
 def test_enqueue_returns_job_id(client, redis_mock):
+    """Test that the enqueue endpoint returns a job ID."""
     resp = client.post("/enqueue", json={"text": "NASA launched Artemis from Cape Canaveral."})
 
     assert resp.status_code == 200
@@ -91,6 +98,7 @@ def test_enqueue_returns_job_id(client, redis_mock):
 
 
 def test_enqueue_calls_redis_rpush(client, redis_mock):
+    """Test that the enqueue endpoint calls Redis rpush."""
     redis_mock.rpush.reset_mock()
     client.post("/enqueue", json={"text": "OpenAI is headquartered in San Francisco."})
     redis_mock.rpush.assert_called_once()
@@ -101,6 +109,7 @@ def test_enqueue_calls_redis_rpush(client, redis_mock):
 # ---------------------------------------------------------------------------
 
 def test_result_pending_when_not_ready(client, redis_mock):
+    """Test that the result endpoint returns pending when the job is not ready."""
     redis_mock.get.return_value = None  # job not yet written by worker
 
     resp = client.get("/result/some-fake-job-id")
@@ -112,6 +121,7 @@ def test_result_pending_when_not_ready(client, redis_mock):
 
 
 def test_result_complete_when_ready(client, redis_mock):
+    """Test that the result endpoint returns complete when the job is ready."""
     stored = json.dumps({**CACHED_RESULT, "input": {"text": "Carl Sagan studied at Harvard."}})
     redis_mock.get.return_value = stored
 

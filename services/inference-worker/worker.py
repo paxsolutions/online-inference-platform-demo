@@ -15,7 +15,7 @@ from transformers import pipeline
 _model = pipeline(
     "ner",
     model="dslim/bert-base-NER",
-    aggregation_strategy="simple"
+    aggregation_strategy="first"
 )
 
 APP_NAME = os.getenv("APP_NAME", "inference-worker")

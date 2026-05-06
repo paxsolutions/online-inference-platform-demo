@@ -31,6 +31,7 @@ def redis_mock():
 
 @pytest.fixture(scope="module")
 def client():
+    """Create a FastAPI TestClient for the app."""
     from app.main import app
     from fastapi.testclient import TestClient
 

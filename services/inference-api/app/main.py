@@ -44,7 +44,7 @@ tracer = trace.get_tracer(APP_NAME)
 _model = pipeline(
     "ner",
     model="dslim/bert-base-NER",
-    aggregation_strategy="simple"
+    aggregation_strategy="first"
 )
 
 r = redis.Redis.from_url(REDIS_URL, decode_responses=True)
