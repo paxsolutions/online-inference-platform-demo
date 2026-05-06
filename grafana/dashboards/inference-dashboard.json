@@ -217,7 +217,7 @@
       "targets": [
         {
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "expr": "rate(inference_requests_total{status!=\"success\"}[1m]) or vector(0)",
+          "expr": "rate(inference_requests_total{status=\"500\"}[1m]) or vector(0)",
           "legendFormat": "errors/s",
           "refId": "A"
         }

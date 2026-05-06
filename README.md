@@ -82,7 +82,7 @@ All services start together. On first run, images are built from source. Subsequ
 | http://localhost:8080/metrics | Raw Prometheus metrics |
 | http://localhost:16686 | Jaeger trace explorer |
 | http://localhost:9090 | Prometheus query UI |
-| http://localhost:3000 | Grafana dashboard (admin / admin) |
+| http://localhost:3004 | Grafana dashboard (admin / admin) |
 
 ---
 
@@ -254,7 +254,7 @@ rate(worker_jobs_total{status="ok"}[1m])
 
 ### Grafana Dashboard
 
-Open **http://localhost:3000** → log in with `admin` / `admin` → the **Inference Platform** dashboard is pre-provisioned under **Dashboards**.
+Open **http://localhost:3004** → log in with `admin` / `admin` → the **Inference Platform** dashboard is pre-provisioned under **Dashboards**.
 
 It shows:
 - Request rate per endpoint
