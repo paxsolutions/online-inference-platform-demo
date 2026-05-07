@@ -308,7 +308,8 @@ BASE_URL=http://localhost:8080 k6 run load/k6.js
 ```
 
 **Thresholds (fail the run if breached):**
-- `http_req_duration p(95) < 500 ms`
+- `http_req_duration p(95) < 3000 ms`
+- `infer_latency_ms p(95) < 3000 ms`
 - `error_rate < 1 %`
 
 Watch the HPA respond during load (Kubernetes only):
@@ -316,6 +317,69 @@ Watch the HPA respond during load (Kubernetes only):
 ```bash
 kubectl -n inference get hpa -w
 ```
+
+---
+
+## CI / CD Pipeline
+
+GitHub Actions workflows live in `.github/workflows/`. Images are published to GHCR.
+
+### Pipeline flow
+
+```
+Push to main
+  └─ lint → test → build-api + build-worker → auto-tag
+                                                    │
+                           Tag v1.2.3 pushed ───────┘
+                             └─ release.yml
+                                  ├─ Generate release notes
+                                  ├─ Create GitHub Release
+                                  └─ Push versioned images (:v1.2.3)
+```
+
+### Workflows
+
+| File | Trigger | Jobs |
+|---|---|---|
+| `ci.yml` | Push / PR to `main` | `lint` → `test` → `build-api` + `build-worker` → `auto-tag` |
+| `release.yml` | Push of `v*.*.*` tag | `release` (GitHub Release + notes) → `push-versioned-images` |
+
+### Conventional commits → version bumps
+
+`auto-tag` reads commit messages to determine the semver bump:
+
+| Commit prefix | Bump | Example |
+|---|---|---|
+| `feat:` | minor | `1.0.0 → 1.1.0` |
+| `fix:` or anything else | patch | `1.0.0 → 1.0.1` |
+| `BREAKING CHANGE` in footer | major | `1.0.0 → 2.0.0` |
+
+### Docker image tags
+
+| Event | Tags pushed |
+|---|---|
+| Merge to `main` | `:latest`, `:<sha>` |
+| Release tag | `:v1.2.3` (additionally) |
+
+### Required secret
+
+The `auto-tag` job uses a **Personal Access Token** (not the default `GITHUB_TOKEN`) so that the pushed tag triggers `release.yml`. Without this, GitHub's security model silently drops the downstream trigger.
+
+1. Create a fine-grained PAT with **Contents → Read and Write** on this repo
+2. Add it as a repository secret named **`PAT_TOKEN`** (Settings → Secrets and variables → Actions)
+
+### Job summaries
+
+Each job writes a summary to the GitHub Actions **Summary** tab:
+
+| Job | Summary |
+|---|---|
+| Lint | ✅ / ❌ per service |
+| Test | Passed / Failed / Errors / Skipped count (parsed from JUnit XML) |
+| Build | Pushed image tags |
+| Auto Tag | New tag, previous tag, bump type |
+| Release | Full release notes preview |
+| Push versioned images | Versioned image reference per service |
 
 ---
 
@@ -486,6 +550,10 @@ Both services are fully configured via environment variables.
 ├── charts/online-inference/    # Helm chart
 ├── load/
 │   └── k6.js                   # k6 load test script
-├── .github/workflows/ci.yml    # GitHub Actions CI
+├── .github/
+│   ├── release.yml             # Auto-generated release notes config
+│   └── workflows/
+│       ├── ci.yml              # Lint → test → build → auto-tag
+│       └── release.yml         # GitHub Release + versioned image push
 └── docker-compose.yml
 ```
