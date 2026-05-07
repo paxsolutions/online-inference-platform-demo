@@ -18,10 +18,49 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Generate release notes
+        id: release-notes
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+          if [ -z "$LAST_TAG" ]; then
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges)
+          else
+            CHANGELOG=$(git log "$LAST_TAG"..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          fi
+
+          BASE=${LAST_TAG:-$(git rev-list --max-parents=0 HEAD)}
+
+          cat > /tmp/release-notes.md << EOF
+          # Release $VERSION
+
+          ## What's Changed
+
+          $CHANGELOG
+
+          ## Metrics
+
+          - **Commits:** $(git rev-list --count ${BASE}..HEAD)
+          - **Contributors:** $(git log ${BASE}..HEAD --format='%an' | sort -u | wc -l | tr -d ' ')
+          - **Files Changed:** $(git diff --name-only ${BASE}..HEAD | wc -l | tr -d ' ')
+
+          ---
+
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${LAST_TAG}...$VERSION
+          EOF
+
+          echo "release-notes-file=/tmp/release-notes.md" >> $GITHUB_OUTPUT
+
+          echo "## 📋 Release Notes Preview" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat /tmp/release-notes.md >> $GITHUB_STEP_SUMMARY
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          body_path: ${{ steps.release-notes.outputs.release-notes-file }}
           make_latest: true
 
   push-versioned-images:
@@ -55,3 +94,9 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.service }}:${{ github.ref_name }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Image summary
+        run: |
+          echo "## 🐳 ${{ matrix.service }}:${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.service }}:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY

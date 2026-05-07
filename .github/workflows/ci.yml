@@ -24,10 +24,26 @@ jobs:
         run: pip install ruff
 
       - name: Lint inference-api
+        id: lint-api
         run: ruff check services/inference-api/app services/inference-api/tests
 
       - name: Lint inference-worker
+        id: lint-worker
         run: ruff check services/inference-worker/worker.py
+
+      - name: Lint summary
+        if: always()
+        run: |
+          echo "## 🔍 Lint Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
+          API_OUTCOME="${{ steps.lint-api.outcome }}"
+          WORKER_OUTCOME="${{ steps.lint-worker.outcome }}"
+          [ "$API_OUTCOME" = "success" ] && API_STATUS="✅ Passed" || API_STATUS="❌ Failed"
+          [ "$WORKER_OUTCOME" = "success" ] && WORKER_STATUS="✅ Passed" || WORKER_STATUS="❌ Failed"
+          echo "| inference-api | $API_STATUS |" >> $GITHUB_STEP_SUMMARY
+          echo "| inference-worker | $WORKER_STATUS |" >> $GITHUB_STEP_SUMMARY
 
   test:
     name: Test (inference-api)
@@ -49,7 +65,33 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run tests
-        run: pytest tests/ -v
+        id: pytest
+        run: pytest tests/ -v --junit-xml=/tmp/pytest-results.xml
+
+      - name: Test summary
+        if: always()
+        run: |
+          echo "## 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          python3 - << 'PYEOF'
+          import xml.etree.ElementTree as ET, os
+          try:
+              tree = ET.parse('/tmp/pytest-results.xml')
+              root = tree.getroot()
+              suite = root if root.tag == 'testsuite' else root.find('testsuite')
+              tests    = int(suite.get('tests',    0))
+              failures = int(suite.get('failures', 0))
+              errors   = int(suite.get('errors',   0))
+              skipped  = int(suite.get('skipped',  0))
+              passed   = tests - failures - errors - skipped
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+                  f.write('| Total | ✅ Passed | ❌ Failed | ⚠️ Errors | ⏭️ Skipped |\n')
+                  f.write('|-------|-----------|-----------|-----------|------------|\n')
+                  f.write(f'| {tests} | {passed} | {failures} | {errors} | {skipped} |\n')
+          except Exception as e:
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+                  f.write(f'Could not parse results: {e}\n')
+          PYEOF
 
   build-api:
     name: Build & Push (inference-api)
@@ -85,6 +127,15 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Build summary
+        run: |
+          echo "## 🐳 inference-api" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Tag | Image |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| \`latest\` | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| \`${{ github.sha }}\` | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+
   build-worker:
     name: Build & Push (inference-worker)
     runs-on: ubuntu-latest
@@ -119,6 +170,15 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Build summary
+        run: |
+          echo "## 🐳 inference-worker" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Tag | Image |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| \`latest\` | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| \`${{ github.sha }}\` | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+
   auto-tag:
     name: Auto Tag
     runs-on: ubuntu-latest
@@ -132,8 +192,19 @@ jobs:
           fetch-depth: 0
 
       - name: Bump version and push tag
+        id: tag
         uses: mathieudutour/github-tag-action@v6.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           default_bump: patch
           release_branches: main
+
+      - name: Tag summary
+        run: |
+          echo "## 🏷️ Auto Tag" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| New tag | \`${{ steps.tag.outputs.new_tag }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Previous tag | \`${{ steps.tag.outputs.previous_tag }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Bump type | ${{ steps.tag.outputs.release_type }} |" >> $GITHUB_STEP_SUMMARY
