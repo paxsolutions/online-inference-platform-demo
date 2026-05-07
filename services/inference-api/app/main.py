@@ -3,7 +3,7 @@ import json
 import os
 import time
 import uuid
-from typing import Any, Dict
+from typing import Any
 
 import redis
 from fastapi import FastAPI, HTTPException, Request, Response
@@ -28,6 +28,7 @@ LATENCY = Histogram("inference_request_latency_seconds", "Latency seconds", ["en
 ENQUEUE = Counter("inference_jobs_enqueued_total", "Jobs enqueued total")
 JOB_TIME = Histogram("inference_job_processing_seconds", "Worker job processing seconds")
 
+
 def _setup_tracing() -> None:
     resource = Resource.create({"service.name": APP_NAME})
     provider = TracerProvider(resource=resource)
@@ -41,17 +42,15 @@ def _setup_tracing() -> None:
 _setup_tracing()
 tracer = trace.get_tracer(APP_NAME)
 
-_model = pipeline(
-    "ner",
-    model="dslim/bert-base-NER",
-    aggregation_strategy="first"
-)
+_model = pipeline("ner", model="dslim/bert-base-NER", aggregation_strategy="first")
 
 r = redis.Redis.from_url(REDIS_URL, decode_responses=True)
 
 app = FastAPI(title="Online Inference Demo", version="1.1.0")
+
+
 @app.get("/healthz")
-def healthz() -> Dict[str, Any]:
+def healthz() -> dict[str, Any]:
     """
     Health check endpoint.
 
@@ -62,7 +61,8 @@ def healthz() -> Dict[str, Any]:
         pong = r.ping()
         return {"ok": True, "redis": pong}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"redis_unhealthy: {e}")
+        raise HTTPException(status_code=500, detail=f"redis_unhealthy: {e}") from e
+
 
 @app.get("/metrics")
 def metrics() -> Response:
@@ -74,7 +74,8 @@ def metrics() -> Response:
     """
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
-def _hash_payload(payload: Dict[str, Any]) -> str:
+
+def _hash_payload(payload: dict[str, Any]) -> str:
     """
     Hash payload for cache key.
 
@@ -87,13 +88,15 @@ def _hash_payload(payload: Dict[str, Any]) -> str:
     raw = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(raw).hexdigest()
 
+
 # def _simulate_inference() -> Dict[str, Any]:
 #     # cache miss latency simulation (40–80ms)
 #     time.sleep(random.uniform(0.04, 0.08))
 #     score = round(random.random(), 6)
 #     return {"score": score, "model": "demo-v1", "ts": int(time.time())}
 
-def run_inference(text: str) -> Dict[str, Any]:
+
+def run_inference(text: str) -> dict[str, Any]:
     entities = _model(text)
     return {
         "entities": [
@@ -107,8 +110,9 @@ def run_inference(text: str) -> Dict[str, Any]:
         "model": "bert-base-NER",
     }
 
+
 @app.post("/infer")
-async def infer(request: Request) -> Dict[str, Any]:
+async def infer(request: Request) -> dict[str, Any]:
     """
     Synchronous inference endpoint with cache-aside pattern.
 
@@ -149,10 +153,11 @@ async def infer(request: Request) -> Dict[str, Any]:
         raise
     except Exception as e:
         REQS.labels(endpoint="/infer", status="500").inc()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
 
 @app.post("/enqueue")
-async def enqueue(request: Request) -> Dict[str, Any]:
+async def enqueue(request: Request) -> dict[str, Any]:
     """
     Enqueue inference job to Redis queue.
 
@@ -183,10 +188,11 @@ async def enqueue(request: Request) -> Dict[str, Any]:
         raise
     except Exception as e:
         REQS.labels(endpoint="/enqueue", status="500").inc()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
 
 @app.get("/result/{job_id}")
-def get_result(job_id: str) -> Dict[str, Any]:
+def get_result(job_id: str) -> dict[str, Any]:
     """
     Get inference result by job_id.
 
@@ -212,4 +218,4 @@ def get_result(job_id: str) -> Dict[str, Any]:
         raise
     except Exception as e:
         REQS.labels(endpoint="/result", status="500").inc()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

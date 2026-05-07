@@ -11,11 +11,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from prometheus_client import Counter, Histogram, start_http_server
 from transformers import pipeline
 
-_model = pipeline(
-    "ner",
-    model="dslim/bert-base-NER",
-    aggregation_strategy="first"
-)
+_model = pipeline("ner", model="dslim/bert-base-NER", aggregation_strategy="first")
 
 APP_NAME = os.getenv("APP_NAME", "inference-worker")
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
@@ -27,6 +23,7 @@ METRICS_PORT = int(os.getenv("METRICS_PORT", "9100"))
 JOBS = Counter("worker_jobs_total", "Jobs processed", ["status"])
 JOB_TIME = Histogram("worker_job_processing_seconds", "Job processing seconds")
 
+
 def setup_tracing():
     """Setup OpenTelemetry tracing."""
     resource = Resource.create({"service.name": APP_NAME})
@@ -35,6 +32,7 @@ def setup_tracing():
     if OTEL_EXPORTER_OTLP_ENDPOINT:
         exporter = OTLPSpanExporter(endpoint=OTEL_EXPORTER_OTLP_ENDPOINT)
         provider.add_span_processor(BatchSpanProcessor(exporter))
+
 
 def run_inference(payload: dict) -> dict:
     """Run NER inference and return grouped entities."""
@@ -51,6 +49,7 @@ def run_inference(payload: dict) -> dict:
         ],
         "model": "bert-base-NER",
     }
+
 
 def main():
     """Main worker loop."""
@@ -91,6 +90,7 @@ def main():
         except Exception as e:
             JOBS.labels(status="error").inc()
             print(f"[worker] error: {e}")
+
 
 if __name__ == "__main__":
     main()

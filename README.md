@@ -555,5 +555,8 @@ Both services are fully configured via environment variables.
 │   └── workflows/
 │       ├── ci.yml              # Lint → test → build → auto-tag
 │       └── release.yml         # GitHub Release + versioned image push
+├── .pre-commit-config.yaml     # Pre-commit / commit-msg / pre-push hooks
+├── ruff.toml                   # Shared linter config (CI + pre-commit)
+├── CONTRIBUTING.md
 └── docker-compose.yml
 ```

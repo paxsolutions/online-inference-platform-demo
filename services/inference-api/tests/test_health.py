@@ -3,7 +3,7 @@ import json
 CACHED_RESULT = {
     "entities": [
         {"text": "Carl Sagan", "label": "PER", "score": 0.9998},
-        {"text": "Harvard",    "label": "ORG", "score": 0.9752},
+        {"text": "Harvard", "label": "ORG", "score": 0.9752},
     ],
     "model": "bert-base-NER",
 }
@@ -11,6 +11,7 @@ CACHED_RESULT = {
 # ---------------------------------------------------------------------------
 # /healthz
 # ---------------------------------------------------------------------------
+
 
 def test_healthz_ok(client, redis_mock):
     """Test that the health check endpoint returns OK."""
@@ -25,6 +26,7 @@ def test_healthz_ok(client, redis_mock):
 # /metrics
 # ---------------------------------------------------------------------------
 
+
 def test_metrics_returns_prometheus_text(client):
     """Test that the metrics endpoint returns Prometheus text format."""
     resp = client.get("/metrics")
@@ -37,6 +39,7 @@ def test_metrics_returns_prometheus_text(client):
 # ---------------------------------------------------------------------------
 # /infer
 # ---------------------------------------------------------------------------
+
 
 def test_infer_cache_miss_returns_ner_entities(client, redis_mock):
     """Test that a cache miss triggers model inference and returns NER entities."""
@@ -86,6 +89,7 @@ def test_infer_empty_body_returns_error(client):
 # /enqueue
 # ---------------------------------------------------------------------------
 
+
 def test_enqueue_returns_job_id(client, redis_mock):
     """Test that the enqueue endpoint returns a job ID."""
     resp = client.post("/enqueue", json={"text": "NASA launched Artemis from Cape Canaveral."})
@@ -107,6 +111,7 @@ def test_enqueue_calls_redis_rpush(client, redis_mock):
 # ---------------------------------------------------------------------------
 # /result/{job_id}
 # ---------------------------------------------------------------------------
+
 
 def test_result_pending_when_not_ready(client, redis_mock):
     """Test that the result endpoint returns pending when the job is not ready."""
