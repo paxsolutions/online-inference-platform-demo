@@ -1,7 +1,7 @@
 replicaCount: 2
 image:
   repository: ghcr.io/paxsolutions/online-inference-platform-demo/inference-api
-  tag: v0.3.0
+  tag: v0.3.1
   pullPolicy: IfNotPresent
 imagePullSecrets:
   - name: ghcr-pull-secret
@@ -56,7 +56,7 @@ worker:
   name: inference-worker
   image:
     repository: ghcr.io/paxsolutions/online-inference-platform-demo/inference-worker
-    tag: v0.3.0
+    tag: v0.3.1
     pullPolicy: IfNotPresent
   env:
     REDIS_URL: redis://redis:6379/0
