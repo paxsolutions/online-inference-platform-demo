@@ -5,7 +5,7 @@ metadata:
   labels:
     {{- include "online-inference.labels" . | nindent 4 }}
   annotations:
-    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   type: {{ .Values.service.type }}
   selector:

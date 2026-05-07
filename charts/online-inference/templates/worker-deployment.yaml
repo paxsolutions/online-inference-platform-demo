@@ -4,7 +4,7 @@ kind: Deployment
 metadata:
   name: {{ .Values.worker.name }}
   annotations:
-    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-wave: "3"
 spec:
   replicas: 1
   selector:

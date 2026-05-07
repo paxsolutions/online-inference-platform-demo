@@ -6,7 +6,7 @@ metadata:
   labels:
     {{- include "online-inference.labels" . | nindent 4 }}
   annotations:
-    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-wave: "4"
 spec:
   scaleTargetRef:
     apiVersion: apps/v1

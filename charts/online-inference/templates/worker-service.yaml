@@ -4,7 +4,7 @@ kind: Service
 metadata:
   name: {{ .Values.worker.name }}
   annotations:
-    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   selector:
     app: {{ .Values.worker.name }}

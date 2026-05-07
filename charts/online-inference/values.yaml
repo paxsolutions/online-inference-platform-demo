@@ -36,6 +36,8 @@ autoscaling:
   targetMemoryUtilizationPercentage: 75
 
 redis:
+  enabled: true
+  image: redis:7-alpine
   host: redis
   port: 6379
 

@@ -401,9 +401,10 @@ Resources are applied in dependency order via `argocd.argoproj.io/sync-wave` ann
 | Wave | Resources |
 |---|---|
 | 0 | ConfigMaps |
-| 1 | Services |
-| 2 | Deployments |
-| 3 | HPA, KEDA ScaledObject |
+| 1 | Redis Deployment + Service |
+| 2 | App Services (inference-api, worker, prometheus) |
+| 3 | App Deployments |
+| 4 | HPA, KEDA ScaledObject |
 
 ### Cluster bootstrap
 

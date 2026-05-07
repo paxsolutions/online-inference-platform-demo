@@ -4,7 +4,7 @@ metadata:
   name: {{ include "online-inference.fullname" . }}
   labels: {{- include "online-inference.labels" . | nindent 4 }}
   annotations:
-    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-wave: "3"
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
