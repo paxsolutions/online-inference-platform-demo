@@ -534,7 +534,8 @@ Both services are fully configured via environment variables.
 │   │   ├── app/main.py         # Application code
 │   │   ├── tests/              # pytest unit tests
 │   │   ├── Dockerfile
-│   │   └── requirements.txt
+│   │   ├── requirements.txt    # Full deps incl. torch (Linux/Docker/CI)
+│   │   └── requirements-dev.txt  # Local dev deps — torch excluded (macOS)
 │   └── inference-worker/       # Async queue worker
 │       ├── worker.py
 │       ├── Dockerfile

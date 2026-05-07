@@ -25,13 +25,16 @@ brew install uv
 git clone https://github.com/paxsolutions/online-inference-platform-demo.git
 cd online-inference-platform-demo
 
-# 2. Create a virtual environment and install dev tooling
-uv venv                        # creates .venv/
+# 2. Create a Python 3.12 virtual environment (must match Docker/CI — tokenizers
+#    has no pre-built wheel for 3.13 and will fail to compile from source)
+uv venv --python 3.12          # uv downloads 3.12 automatically if not found
 source .venv/bin/activate      # Windows: .venv\Scripts\activate
 uv pip install pre-commit
 
 # 3. Install API dependencies into the venv (required for the pre-push test hook)
-uv pip install -r services/inference-api/requirements.txt
+#    requirements-dev.txt is identical to requirements.txt but omits
+#    torch==2.10.0+cpu which is a Linux-only wheel (Docker / CI use only)
+uv pip install -r services/inference-api/requirements-dev.txt
 
 # 4. Register the Git hooks
 pre-commit install                            # pre-commit + commit-msg
@@ -156,11 +159,11 @@ git push --no-verify
 # Ensure the venv is active
 source .venv/bin/activate
 
-# Fast — mocks model and Redis, no Docker needed
+# Fast — mocks model and Redis, no Docker or torch needed
 cd services/inference-api
 pytest tests/ -v
 
-# Or inside Docker (matches CI exactly)
+# Or inside Docker (matches CI exactly, includes torch)
 docker compose build inference-api
 docker compose run --rm inference-api pytest tests/ -v
 ```
