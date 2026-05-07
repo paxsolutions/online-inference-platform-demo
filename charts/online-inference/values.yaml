@@ -1,25 +1,20 @@
 replicaCount: 2
-
 image:
   repository: ghcr.io/paxsolutions/online-inference-platform-demo/inference-api
-  tag: latest
+  tag: v0.3.0
   pullPolicy: IfNotPresent
-
 imagePullSecrets:
   - name: ghcr-pull-secret
-
 service:
   type: ClusterIP
   port: 80
   targetPort: 8080
-
 env:
   REDIS_URL: redis://redis:6379/0
   CACHE_TTL_SECONDS: "60"
   OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
   QUEUE_NAME: inference:queue
   RESULT_TTL_SECONDS: "600"
-
 resources:
   requests:
     cpu: 250m
@@ -27,46 +22,39 @@ resources:
   limits:
     cpu: 1000m
     memory: 512Mi
-
 autoscaling:
   enabled: true
   minReplicas: 2
   maxReplicas: 10
   targetCPUUtilizationPercentage: 60
   targetMemoryUtilizationPercentage: 75
-
 redis:
   host: redis
   port: 6379
-
 otel:
   endpoint: http://otel-collector:4317
-
 readinessProbe:
   httpGet:
     path: /health
     port: 8080
   initialDelaySeconds: 5
   periodSeconds: 10
-
 livenessProbe:
   httpGet:
     path: /health
     port: 8080
   initialDelaySeconds: 15
   periodSeconds: 20
-
 podAnnotations:
   prometheus.io/scrape: "true"
   prometheus.io/port: "8080"
   prometheus.io/path: /metrics
-
 worker:
   enabled: true
   name: inference-worker
   image:
     repository: ghcr.io/paxsolutions/online-inference-platform-demo/inference-worker
-    tag: latest
+    tag: v0.3.0
     pullPolicy: IfNotPresent
   env:
     REDIS_URL: redis://redis:6379/0
@@ -74,7 +62,6 @@ worker:
     RESULT_TTL_SECONDS: "600"
     OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
     METRICS_PORT: "9100"
-
 keda:
   enabled: true
   pollingInterval: 5
@@ -85,7 +72,6 @@ keda:
     address: redis:6379
     listName: inference:queue
     listLength: "5"
-
 prometheus:
   enabled: true
   scrapeInterval: 5s
