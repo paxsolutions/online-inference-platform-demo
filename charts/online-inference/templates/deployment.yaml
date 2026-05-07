@@ -3,6 +3,8 @@ kind: Deployment
 metadata:
   name: {{ include "online-inference.fullname" . }}
   labels: {{- include "online-inference.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
@@ -13,6 +15,9 @@ spec:
       labels: {{- include "online-inference.selectorLabels" . | nindent 8 }}
       annotations: {{- toYaml .Values.podAnnotations | nindent 8 }}
     spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"

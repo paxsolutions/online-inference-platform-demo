@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: online-inference
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/paxsolutions/online-inference-platform-demo
+    targetRevision: HEAD
+    path: charts/online-inference
+    helm:
+      valueFiles:
+        - values.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: inference
+
+  syncPolicy:
+    automated:
+      prune: true       # delete resources removed from Git
+      selfHeal: true    # revert manual cluster changes back to Git state
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

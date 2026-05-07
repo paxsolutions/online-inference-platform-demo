@@ -1,9 +1,12 @@
 replicaCount: 2
 
 image:
-  repository: inference-api
+  repository: ghcr.io/paxsolutions/online-inference-platform-demo/inference-api
   tag: latest
   pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: ghcr-pull-secret
 
 service:
   type: ClusterIP
@@ -14,6 +17,8 @@ env:
   REDIS_URL: redis://redis:6379/0
   CACHE_TTL_SECONDS: "60"
   OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
+  QUEUE_NAME: inference:queue
+  RESULT_TTL_SECONDS: "600"
 
 resources:
   requests:
@@ -60,8 +65,8 @@ worker:
   enabled: true
   name: inference-worker
   image:
-    repository: inference-worker
-    tag: local
+    repository: ghcr.io/paxsolutions/online-inference-platform-demo/inference-worker
+    tag: latest
     pullPolicy: IfNotPresent
   env:
     REDIS_URL: redis://redis:6379/0

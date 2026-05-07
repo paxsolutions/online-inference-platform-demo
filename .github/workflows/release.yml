@@ -100,3 +100,37 @@ jobs:
           echo "## 🐳 ${{ matrix.service }}:${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "\`${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.service }}:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+
+  update-helm-values:
+    name: Write image tags back to Helm values (GitOps)
+    runs-on: ubuntu-latest
+    needs: push-versioned-images
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN }}
+          ref: main
+
+      - name: Bump image tags in values.yaml
+        run: |
+          VERSION="${{ github.ref_name }}"
+          yq e ".image.tag = \"${VERSION}\"" -i charts/online-inference/values.yaml
+          yq e ".worker.image.tag = \"${VERSION}\"" -i charts/online-inference/values.yaml
+
+      - name: Commit and push
+        run: |
+          VERSION="${{ github.ref_name }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add charts/online-inference/values.yaml
+          git commit -m "chore: bump image tags to ${VERSION} [skip ci]"
+          git push origin main
+
+      - name: GitOps summary
+        run: |
+          echo "## 🔄 GitOps Write-back" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Updated \`charts/online-inference/values.yaml\` image tags to \`${{ github.ref_name }}\`." >> $GITHUB_STEP_SUMMARY
+          echo "ArgoCD will detect the change and sync the \`inference\` namespace." >> $GITHUB_STEP_SUMMARY

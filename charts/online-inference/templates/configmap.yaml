@@ -4,6 +4,8 @@ metadata:
   name: {{ include "online-inference.fullname" . }}-config
   labels:
     {{- include "online-inference.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 data:
   REDIS_HOST: {{ .Values.redis.host | quote }}
   REDIS_PORT: {{ .Values.redis.port | quote }}

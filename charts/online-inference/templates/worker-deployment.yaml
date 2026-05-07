@@ -3,6 +3,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Values.worker.name }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   replicas: 1
   selector:
@@ -13,6 +15,9 @@ spec:
       labels:
         app: {{ .Values.worker.name }}
     spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: inference-worker
           image: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"

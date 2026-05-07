@@ -383,6 +383,65 @@ Each job writes a summary to the GitHub Actions **Summary** tab:
 
 ---
 
+## GitOps with ArgoCD
+
+ArgoCD watches the `charts/online-inference/` Helm chart in this repo and continuously reconciles the `inference` namespace to match. The CI pipeline closes the loop by writing the new image tag back to `values.yaml` after each release.
+
+```
+Release tag pushed
+  └─ push-versioned-images (CI builds :v1.2.3)
+       └─ update-helm-values (writes tag to values.yaml, commits [skip ci])
+            └─ ArgoCD detects Git diff → syncs inference namespace
+```
+
+### Sync waves
+
+Resources are applied in dependency order via `argocd.argoproj.io/sync-wave` annotations:
+
+| Wave | Resources |
+|---|---|
+| 0 | ConfigMaps |
+| 1 | Services |
+| 2 | Deployments |
+| 3 | HPA, KEDA ScaledObject |
+
+### Cluster bootstrap
+
+```bash
+# 1. Install ArgoCD
+kubectl create namespace argocd
+
+kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+
+# 2. Wait for ArgoCD to be ready
+kubectl -n argocd wait --for=condition=available deployment/argocd-server --timeout=120s
+
+# 3. Create the GHCR image pull secret in the inference namespace
+kubectl create namespace inference
+kubectl -n inference create secret docker-registry ghcr-pull-secret \
+  --docker-server=ghcr.io \
+  --docker-username=<github-username> \
+  --docker-password=<ghcr-pat>
+
+# 4. Apply the ArgoCD Application manifest
+kubectl apply -f deploy/argocd/application.yaml
+
+# 5. Open the ArgoCD UI
+kubectl -n argocd port-forward svc/argocd-server 8443:443
+# https://localhost:8443  (admin / retrieve password below)
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath="{.data.password}" | base64 -d
+```
+
+ArgoCD will immediately detect `charts/online-inference/` and begin syncing. Subsequent releases update `values.yaml` via CI and ArgoCD picks up the diff automatically.
+
+### Required secret
+
+`PAT_TOKEN` (already used by `auto-tag`) is also used by the `update-helm-values` job to push the tag write-back commit to `main`.
+
+---
+
 ## Kubernetes Deploy (kind)
 
 **Prerequisites:** [kind](https://kind.sigs.k8s.io/), kubectl, Docker.
@@ -547,7 +606,9 @@ Both services are fully configured via environment variables.
 ├── grafana/
 │   ├── provisioning/           # Auto-loaded datasource + dashboard config
 │   └── dashboards/             # inference-dashboard.json
-├── deploy/k8s/                 # Raw Kubernetes manifests (numbered apply order)
+├── deploy/
+│   ├── k8s/                    # Raw Kubernetes manifests (numbered apply order)
+│   └── argocd/                 # ArgoCD Application manifest
 ├── charts/online-inference/    # Helm chart
 ├── load/
 │   └── k6.js                   # k6 load test script
