@@ -37,13 +37,13 @@ otel:
   endpoint: http://otel-collector:4317
 readinessProbe:
   httpGet:
-    path: /health
+    path: /healthz
     port: 8080
   initialDelaySeconds: 30
   periodSeconds: 10
 livenessProbe:
   httpGet:
-    path: /health
+    path: /healthz
     port: 8080
   initialDelaySeconds: 90
   periodSeconds: 20
