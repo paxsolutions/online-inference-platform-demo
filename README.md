@@ -488,15 +488,15 @@ kubectl -n inference port-forward svc/inference-worker 9100:9100
 
 ### HPA (inference-api)
 
-`deploy/k8s/70-hpa.yaml` configures a Kubernetes HPA that scales `inference-api` replicas based on CPU utilisation. Under load from k6, watch it respond:
+The Helm chart configures a Kubernetes HPA that scales `online-inference` replicas based on CPU/memory utilisation. Under load from k6, watch it respond:
 
 ```bash
-kubectl -n inference get hpa inference-api -w
+kubectl -n inference get hpa online-inference -w
 ```
 
 ### KEDA (inference-worker)
 
-`deploy/k8s/80-keda-worker-scaledobject.yaml` configures KEDA to scale `inference-worker` based on the length of the `inference:queue` Redis list.
+The Helm chart configures KEDA to scale `inference-worker` based on the length of the `inference:queue` Redis list.
 
 | Setting | Value |
 |---|---|
