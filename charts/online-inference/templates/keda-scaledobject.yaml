@@ -15,7 +15,7 @@ spec:
   triggers:
     - type: redis
       metadata:
-        address: {{ .Values.keda.redis.address | quote }}
+        address: "{{ .Values.redis.host }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.redis.port }}"
         listName: {{ .Values.keda.redis.listName | quote }}
         listLength: {{ .Values.keda.redis.listLength | quote }}
 {{- end }}
