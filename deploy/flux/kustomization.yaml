@@ -1,0 +1,21 @@
+---
+# Optional: Kustomization for raw manifests if needed alongside Helm
+# This file is currently a placeholder for future raw K8s resources
+# The HelmRelease above handles the main application deployment
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: online-inference-flux-config
+  namespace: flux-system
+spec:
+  interval: 10m
+  targetNamespace: inference-flux
+  sourceRef:
+    kind: GitRepository
+    name: online-inference
+  path: ./deploy/flux/config
+  prune: true
+  timeout: 2m
+  dependsOn:
+    - name: online-inference-flux
+      namespace: flux-system

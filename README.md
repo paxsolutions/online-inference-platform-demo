@@ -443,6 +443,51 @@ ArgoCD will immediately detect `charts/online-inference/` and begin syncing. Sub
 
 ---
 
+## GitOps with FluxCD (Side-by-side with ArgoCD)
+
+FluxCD offers a native Kubernetes approach to GitOps using controllers rather than a central server. Both can manage the same Helm chart simultaneously by using different release names and namespaces.
+
+| | ArgoCD | FluxCD |
+|---|---|---|
+| **Namespace** | `inference` | `inference-flux` |
+| **Release name** | `online-inference` | `online-inference-flux` |
+| **UI** | Built-in rich UI | CLI / Optional Weave GitOps |
+| **Ordering** | Sync-wave annotations | `dependsOn` in manifests |
+
+### Cluster bootstrap
+
+```bash
+# 1. Install FluxCD (if not already installed)
+flux install
+
+# 2. Create GHCR pull secret in Flux namespace
+kubectl create namespace inference-flux
+kubectl -n inference-flux create secret docker-registry ghcr-pull-secret \
+  --docker-server=ghcr.io \
+  --docker-username=<github-username> \
+  --docker-password=<ghcr-pat>
+
+# 3. Apply Flux manifests
+kubectl apply -f deploy/flux/source.yaml
+kubectl apply -f deploy/flux/helmrelease.yaml
+# Optional: kubectl apply -f deploy/flux/kustomization.yaml
+
+# 4. Watch Flux reconcile
+flux get helmreleases -A
+kubectl -n flux-system logs deployment/helm-controller -f
+```
+
+Flux will create `inference-flux` namespace and deploy the same chart as ArgoCD (but with release name `online-inference-flux`). This allows direct comparison of behavior, performance, and resource usage.
+
+### Comparison observations
+
+- **Memory**: Flux controllers (~100MB) vs ArgoCD server (~500MB+)
+- **Ordering**: Flux `dependsOn` vs ArgoCD sync-waves
+- **Image automation**: Flux has built-in ImagePolicy (optional replacement for CI write-back)
+- **Helm**: Both use native Helm; values can diverge for A/B testing
+
+---
+
 ## Kubernetes Deploy (kind)
 
 **Prerequisites:** [kind](https://kind.sigs.k8s.io/), kubectl, Docker.
@@ -609,7 +654,8 @@ Both services are fully configured via environment variables.
 │   └── dashboards/             # inference-dashboard.json
 ├── deploy/
 │   ├── k8s/                    # Raw Kubernetes manifests (numbered apply order)
-│   └── argocd/                 # ArgoCD Application manifest
+│   ├── argocd/                 # ArgoCD Application manifest
+│   └── flux/                   # FluxCD GitRepository + HelmRelease manifests
 ├── charts/online-inference/    # Helm chart
 ├── load/
 │   └── k6.js                   # k6 load test script
