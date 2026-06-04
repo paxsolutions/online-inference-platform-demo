@@ -9,7 +9,6 @@ metadata:
 data:
   REDIS_HOST: {{ .Values.redis.host | quote }}
   REDIS_PORT: {{ .Values.redis.port | quote }}
-  OTEL_EXPORTER_OTLP_ENDPOINT: {{ .Values.otel.endpoint | quote }}
   CACHE_TTL_SECONDS: {{ .Values.env.CACHE_TTL_SECONDS | quote }}
   OTEL_EXPORTER_OTLP_ENDPOINT: {{ .Values.env.OTEL_EXPORTER_OTLP_ENDPOINT | quote }}
   QUEUE_NAME: {{ .Values.env.QUEUE_NAME | quote }}
