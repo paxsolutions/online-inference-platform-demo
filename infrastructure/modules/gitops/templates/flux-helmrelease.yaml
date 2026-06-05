@@ -1,0 +1,24 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ${name}
+  namespace: ${namespace}
+spec:
+  interval: ${interval}
+  releaseName: ${name}
+  targetNamespace: ${target_namespace}
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  chart:
+    spec:
+      chart: ${chart_path}
+      sourceRef:
+        kind: GitRepository
+        name: ${gitrepo_name}
+        namespace: ${namespace}
+      interval: ${interval}
