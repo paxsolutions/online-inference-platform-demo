@@ -17,7 +17,7 @@ variable "environment" {
 variable "kubernetes_version" {
   description = "Kubernetes version for EKS"
   type        = string
-  default     = "1.29"
+  default     = "1.32"
 }
 
 variable "vpc_cidr" {
