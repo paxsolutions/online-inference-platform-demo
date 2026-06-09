@@ -1,0 +1,53 @@
+# Custom values for ArgoCD Helm chart
+crds:
+  keep: false
+
+configs:
+  params:
+    server.insecure: true
+  cm:
+    url: ${domain}
+    exec.enabled: true
+    resource.exclusions: |
+      - apiGroups:
+        - cilium.io
+        kinds:
+        - CiliumIdentity
+        clusters:
+        - "*"
+  secret:
+    argocdServerAdminPassword: ${admin_password}
+
+server:
+  service:
+    type: ClusterIP
+  ingress:
+    enabled: false
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+repoServer:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+dex:
+  enabled: false
+
+redis:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
