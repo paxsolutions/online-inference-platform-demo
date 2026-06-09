@@ -154,7 +154,7 @@ spec:
             - name: GF_FEATURE_TOGGLES_ENABLE
               value: "traceqlEditor"
           ports:
-            - containerPort: 3000
+            - containerPort: 3006
           resources:
             requests:
               cpu: 50m
@@ -190,6 +190,6 @@ spec:
   selector:
     app: grafana
   ports:
-    - port: 3000
-      targetPort: 3000
+    - port: 3006
+      targetPort: 3006
 {{- end }}
