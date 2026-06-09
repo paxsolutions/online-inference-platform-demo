@@ -222,6 +222,25 @@ resource "helm_release" "aws_lbc" {
 }
 
 # ============================================================
+# KEDA (Kubernetes Event-Driven Autoscaling)
+# ============================================================
+
+resource "helm_release" "keda" {
+  count = var.enable_keda ? 1 : 0
+
+  name       = "keda"
+  repository = "https://kedacore.github.io/charts"
+  chart      = "keda"
+  version    = var.keda_version
+  namespace  = "kube-system"
+
+  set {
+    name  = "watchNamespace"
+    value = ""
+  }
+}
+
+# ============================================================
 # Metrics Server (required for HPA)
 # ============================================================
 

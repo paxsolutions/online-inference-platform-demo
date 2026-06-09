@@ -79,6 +79,22 @@ variable "aws_lbc_version" {
 }
 
 # ============================================================
+# KEDA
+# ============================================================
+
+variable "enable_keda" {
+  description = "Enable KEDA for event-driven autoscaling"
+  type        = bool
+  default     = true
+}
+
+variable "keda_version" {
+  description = "Helm chart version for KEDA"
+  type        = string
+  default     = "2.14.2"
+}
+
+# ============================================================
 # Metrics Server
 # ============================================================
 
