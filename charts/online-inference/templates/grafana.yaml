@@ -153,6 +153,8 @@ spec:
               value: "true"
             - name: GF_FEATURE_TOGGLES_ENABLE
               value: "traceqlEditor"
+            - name: GF_SERVER_HTTP_PORT
+              value: "3006"
           ports:
             - containerPort: 3006
           resources:
