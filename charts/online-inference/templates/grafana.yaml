@@ -1,0 +1,195 @@
+{{- if .Values.grafana.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        uid: prometheus
+        url: http://{{ .Values.prometheus.service.name }}:{{ .Values.prometheus.service.port }}
+        access: proxy
+        isDefault: true
+        editable: false
+      - name: Jaeger
+        type: jaeger
+        uid: jaeger
+        url: http://jaeger:16686
+        access: proxy
+        editable: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards-provider
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: default
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-inference
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+data:
+  inference.json: |
+    {
+      "title": "Online Inference Platform",
+      "uid": "inference-overview",
+      "schemaVersion": 38,
+      "refresh": "5s",
+      "panels": [
+        {
+          "id": 1,
+          "title": "Request Rate (req/s)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "rate(http_requests_total[1m])",
+            "legendFormat": "{{ "{{" }}job{{ "}}" }}"
+          }]
+        },
+        {
+          "id": 2,
+          "title": "P95 Latency (ms)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[1m])) * 1000",
+            "legendFormat": "p95 {{ "{{" }}job{{ "}}" }}"
+          }]
+        },
+        {
+          "id": 3,
+          "title": "Cache Hit Rate",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 6, "x": 0, "y": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))",
+            "legendFormat": "hit rate"
+          }],
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 4,
+          "title": "Redis Queue Depth",
+          "type": "timeseries",
+          "gridPos": { "h": 4, "w": 6, "x": 6, "y": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "redis_list_length",
+            "legendFormat": "queue depth"
+          }]
+        },
+        {
+          "id": 5,
+          "title": "Inference Worker Replicas",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 6, "x": 12, "y": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "kube_deployment_status_replicas_ready{deployment=\"inference-worker\"}",
+            "legendFormat": "ready"
+          }],
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 6,
+          "title": "CPU Usage",
+          "type": "timeseries",
+          "gridPos": { "h": 4, "w": 6, "x": 18, "y": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{
+            "expr": "rate(container_cpu_usage_seconds_total{namespace=\"inference\"}[1m])",
+            "legendFormat": "{{ "{{" }}pod{{ "}}" }}"
+          }]
+        }
+      ]
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:{{ .Values.grafana.version }}
+          env:
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "true"
+            - name: GF_AUTH_ANONYMOUS_ORG_ROLE
+              value: "Admin"
+            - name: GF_AUTH_DISABLE_LOGIN_FORM
+              value: "true"
+            - name: GF_FEATURE_TOGGLES_ENABLE
+              value: "traceqlEditor"
+          ports:
+            - containerPort: 3000
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          volumeMounts:
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+            - name: dashboards-provider
+              mountPath: /etc/grafana/provisioning/dashboards
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
+      volumes:
+        - name: datasources
+          configMap:
+            name: grafana-datasources
+        - name: dashboards-provider
+          configMap:
+            name: grafana-dashboards-provider
+        - name: dashboards
+          configMap:
+            name: grafana-dashboard-inference
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  selector:
+    app: grafana
+  ports:
+    - port: 3000
+      targetPort: 3000
+{{- end }}

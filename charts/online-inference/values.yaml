@@ -84,3 +84,15 @@ prometheus:
   service:
     name: prometheus
     port: 9090
+
+otelCollector:
+  enabled: true
+  version: "0.104.0"
+
+jaeger:
+  enabled: true
+  version: "1.58"
+
+grafana:
+  enabled: true
+  version: "11.1.0"
