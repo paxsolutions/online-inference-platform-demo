@@ -61,8 +61,8 @@ data:
           "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [{
-            "expr": "rate(http_requests_total[1m])",
-            "legendFormat": "{{ "{{" }}job{{ "}}" }}"
+            "expr": "rate(inference_requests_total[1m])",
+            "legendFormat": "{{ "{{" }}status{{ "}}" }}"
           }]
         },
         {
@@ -72,8 +72,8 @@ data:
           "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [{
-            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[1m])) * 1000",
-            "legendFormat": "p95 {{ "{{" }}job{{ "}}" }}"
+            "expr": "histogram_quantile(0.95, rate(inference_request_latency_seconds_bucket[1m])) * 1000",
+            "legendFormat": "p95 latency"
           }]
         },
         {
@@ -83,43 +83,43 @@ data:
           "gridPos": { "h": 4, "w": 6, "x": 0, "y": 8 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [{
-            "expr": "rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))",
+            "expr": "rate(inference_requests_total{cache_hit=\"true\"}[5m]) / rate(inference_requests_total[5m])",
             "legendFormat": "hit rate"
           }],
           "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
         },
         {
           "id": 4,
-          "title": "Redis Queue Depth",
+          "title": "Jobs Enqueued (rate/s)",
           "type": "timeseries",
           "gridPos": { "h": 4, "w": 6, "x": 6, "y": 8 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [{
-            "expr": "redis_list_length",
-            "legendFormat": "queue depth"
+            "expr": "rate(inference_jobs_enqueued_total[1m])",
+            "legendFormat": "enqueue rate"
           }]
         },
         {
           "id": 5,
-          "title": "Inference Worker Replicas",
+          "title": "Worker Job Processing P95 (ms)",
           "type": "stat",
           "gridPos": { "h": 4, "w": 6, "x": 12, "y": 8 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [{
-            "expr": "kube_deployment_status_replicas_ready{deployment=\"inference-worker\"}",
-            "legendFormat": "ready"
+            "expr": "histogram_quantile(0.95, rate(inference_job_processing_seconds_bucket[5m])) * 1000",
+            "legendFormat": "p95 processing"
           }],
           "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
         },
         {
           "id": 6,
-          "title": "CPU Usage",
+          "title": "Process CPU (seconds/s)",
           "type": "timeseries",
           "gridPos": { "h": 4, "w": 6, "x": 18, "y": 8 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [{
-            "expr": "rate(container_cpu_usage_seconds_total{namespace=\"inference\"}[1m])",
-            "legendFormat": "{{ "{{" }}pod{{ "}}" }}"
+            "expr": "rate(process_cpu_seconds_total{job=~\"inference-api|inference-worker\"}[1m])",
+            "legendFormat": "{{ "{{" }}job{{ "}}" }}"
           }]
         }
       ]
