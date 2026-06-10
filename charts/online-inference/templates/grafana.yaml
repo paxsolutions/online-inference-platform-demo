@@ -78,15 +78,21 @@ data:
         },
         {
           "id": 3,
-          "title": "Success Rate",
-          "type": "stat",
+          "title": "Cache Hit Rate",
+          "type": "timeseries",
           "gridPos": { "h": 4, "w": 6, "x": 0, "y": 8 },
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [{
-            "expr": "rate(inference_requests_total{status=\"200\"}[5m]) / rate(inference_requests_total[5m])",
-            "legendFormat": "success rate"
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "expr": "sum(rate(inference_request_latency_seconds_count{endpoint=\"/infer\",cache_hit=\"true\"}[1m])) / sum(rate(inference_request_latency_seconds_count{endpoint=\"/infer\"}[1m]))",
+            "legendFormat": "hit rate",
+            "refId": "A"
           }],
-          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "unit": "percentunit" }
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "unit": "percentunit",
+            "legend": {"calcs": ["mean", "lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true},
+            "tooltip": {"mode": "single", "sort": "none"}
+          }
         },
         {
           "id": 4,
