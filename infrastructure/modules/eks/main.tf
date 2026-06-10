@@ -97,6 +97,28 @@ resource "aws_security_group" "cluster" {
   })
 }
 
+# Allow pods to scrape inference-api metrics (port 8080) across nodes
+resource "aws_security_group_rule" "intra_cluster_metrics_api" {
+  type                     = "ingress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.cluster.id
+  source_security_group_id = aws_security_group.cluster.id
+  description              = "Allow intra-cluster Prometheus scraping on port 8080"
+}
+
+# Allow pods to scrape inference-worker metrics (port 9100) across nodes
+resource "aws_security_group_rule" "intra_cluster_metrics_worker" {
+  type                     = "ingress"
+  from_port                = 9100
+  to_port                  = 9100
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.cluster.id
+  source_security_group_id = aws_security_group.cluster.id
+  description              = "Allow intra-cluster Prometheus scraping on port 9100"
+}
+
 # EKS Cluster
 resource "aws_eks_cluster" "main" {
   name     = local.cluster_name
@@ -268,6 +290,27 @@ resource "aws_eks_node_group" "spot" {
 #   count = var.enable_karpenter ? 1 : 0
 #   ...
 # }
+
+# Add Prometheus scraping rules to the EKS-managed cluster SG (auto-attached to all nodes)
+resource "aws_security_group_rule" "eks_managed_sg_metrics_api" {
+  type                     = "ingress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  security_group_id        = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
+  source_security_group_id = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
+  description              = "Allow intra-cluster Prometheus scraping on port 8080"
+}
+
+resource "aws_security_group_rule" "eks_managed_sg_metrics_worker" {
+  type                     = "ingress"
+  from_port                = 9100
+  to_port                  = 9100
+  protocol                 = "tcp"
+  security_group_id        = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
+  source_security_group_id = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
+  description              = "Allow intra-cluster Prometheus scraping on port 9100"
+}
 
 # IRSA (IAM Roles for Service Accounts) - Workload Identity equivalent
 resource "aws_iam_openid_connect_provider" "eks" {
