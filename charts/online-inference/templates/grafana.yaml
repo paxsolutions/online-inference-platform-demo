@@ -78,15 +78,15 @@ data:
         },
         {
           "id": 3,
-          "title": "Cache Hit Rate",
+          "title": "Success Rate",
           "type": "stat",
           "gridPos": { "h": 4, "w": 6, "x": 0, "y": 8 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [{
-            "expr": "rate(inference_requests_total{cache_hit=\"true\"}[5m]) / rate(inference_requests_total[5m])",
-            "legendFormat": "hit rate"
+            "expr": "rate(inference_requests_total{status=\"200\"}[5m]) / rate(inference_requests_total[5m])",
+            "legendFormat": "success rate"
           }],
-          "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "unit": "percentunit" }
         },
         {
           "id": 4,
