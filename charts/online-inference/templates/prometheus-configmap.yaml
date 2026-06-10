@@ -15,7 +15,7 @@ data:
         metrics_path: /metrics
         static_configs:
           - targets:
-              - "online-inference:{{ .Values.service.port }}"
+              - "online-inference:{{ .Values.service.targetPort }}"
 
 {{- if .Values.worker.enabled }}
       - job_name: "inference-worker"
