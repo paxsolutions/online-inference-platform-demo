@@ -29,7 +29,7 @@ flowchart LR
         OTel["otel-collector\n:4318 OTLP HTTP"]
         Jaeger["Jaeger\n:16686 UI"]
         Prom["Prometheus\n:9090"]
-        Grafana["Grafana\n:3000"]
+        Grafana["Grafana\n:3006"]
     end
 
     Client -->|"POST /infer"| API
@@ -60,7 +60,7 @@ flowchart LR
 | `otel-collector` | otel/opentelemetry-collector:0.104.0 | 4318 (OTLP HTTP) | Receives traces, exports to Jaeger |
 | `jaeger` | jaegertracing/all-in-one:1.57 | 16686 (UI), 4317 (OTLP gRPC) | Distributed trace storage + UI |
 | `prometheus` | prom/prometheus:v2.55.0 | 9090 | Scrapes `/metrics` from both services |
-| `grafana` | grafana/grafana:11.1.4 | 3000 | Pre-provisioned dashboard |
+| `grafana` | grafana/grafana:11.1.0 | 3006 | Pre-provisioned dashboard |
 
 ---
 
@@ -82,7 +82,7 @@ All services start together. On first run, images are built from source. Subsequ
 | http://localhost:8080/metrics | Raw Prometheus metrics |
 | http://localhost:16686 | Jaeger trace explorer |
 | http://localhost:9090 | Prometheus query UI |
-| http://localhost:3004 | Grafana dashboard (admin / admin) |
+| http://localhost:3006 | Grafana dashboard (admin / admin) |
 
 ---
 
@@ -241,9 +241,13 @@ Prometheus scrapes both services every 5 seconds. Query UI: **http://localhost:9
 # Request rate (last 1 minute)
 rate(inference_requests_total[1m])
 
+# Success rate
+rate(inference_requests_total{status="200"}[5m])
+  / rate(inference_requests_total[5m])
+
 # Cache hit ratio
-rate(inference_requests_total{cache_hit="true"}[1m])
-  / rate(inference_requests_total[1m])
+sum(rate(inference_request_latency_seconds_count{endpoint="/infer",cache_hit="true"}[1m]))
+  / sum(rate(inference_request_latency_seconds_count{endpoint="/infer"}[1m]))
 
 # p95 latency
 histogram_quantile(0.95, rate(inference_request_latency_seconds_bucket[1m]))
@@ -254,7 +258,7 @@ rate(worker_jobs_total{status="ok"}[1m])
 
 ### Grafana Dashboard
 
-Open **http://localhost:3004** → log in with `admin` / `admin` → the **Inference Platform** dashboard is pre-provisioned under **Dashboards**.
+Open **http://localhost:3006** → log in with `admin` / `admin` → the **Inference Platform** dashboard is pre-provisioned under **Dashboards**.
 
 It shows:
 - Request rate per endpoint
@@ -523,7 +527,7 @@ Run each in a separate terminal tab:
 ```bash
 kubectl -n inference port-forward svc/inference-api    8080:80
 kubectl -n inference port-forward svc/jaeger           16686:16686
-kubectl -n inference port-forward svc/grafana          3000:3000
+kubectl -n inference port-forward svc/grafana          3006:3006
 kubectl -n inference port-forward svc/inference-worker 9100:9100
 ```
 
@@ -545,13 +549,13 @@ The Helm chart configures KEDA to scale `inference-worker` based on the length o
 
 | Setting | Value |
 |---|---|
-| `minReplicaCount` | 0 — scales to zero when queue is empty |
+| `minReplicaCount` | 1 — keeps one worker running for Prometheus scraping |
 | `maxReplicaCount` | 10 |
 | `listLength` trigger | 5 — adds a replica per 5 queued jobs |
 | `pollingInterval` | 5 s |
 | `cooldownPeriod` | 30 s |
 
-Scale-to-zero means the worker consumes no resources when there is no work. To observe scaling:
+With `minReplicaCount: 1`, one worker is always available for Prometheus metric scraping. To observe scaling:
 
 ```bash
 # Flood the queue with NER jobs
@@ -598,9 +602,12 @@ Key `values.yaml` knobs:
 | `image.tag` | `local` | Image tag for inference-api |
 | `worker.enabled` | `true` | Deploy inference-worker |
 | `keda.enabled` | `true` | Deploy KEDA ScaledObject |
-| `keda.minReplicaCount` | 0 | Worker scale-to-zero floor |
+| `keda.minReplicaCount` | 1 | Worker minimum replicas (keeps one running for metrics) |
 | `keda.maxReplicaCount` | 10 | Worker replica ceiling |
 | `prometheus.enabled` | `true` | Deploy Prometheus with static scrape config |
+| `otelCollector.enabled` | `true` | Deploy OpenTelemetry Collector |
+| `jaeger.enabled` | `true` | Deploy Jaeger all-in-one |
+| `grafana.enabled` | `true` | Deploy Grafana with provisioned dashboards |
 
 ---
 
@@ -657,6 +664,14 @@ Both services are fully configured via environment variables.
 │   ├── argocd/                 # ArgoCD Application manifest
 │   └── flux/                   # FluxCD GitRepository + HelmRelease manifests
 ├── charts/online-inference/    # Helm chart
+├── infrastructure/
+│   ├── modules/
+│   │   ├── eks/                # EKS cluster, VPC, node groups, security groups
+│   │   ├── eks-addons/         # Helm add-ons (ALB Controller, KEDA, Metrics Server, etc.)
+│   │   └── gitops/             # ArgoCD / FluxCD installation
+│   └── live/
+│       ├── terragrunt.hcl      # Root Terragrunt config
+│       └── dev/                # Dev environment (eks, eks-addons, gitops)
 ├── load/
 │   └── k6.js                   # k6 load test script
 ├── .github/
