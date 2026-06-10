@@ -51,6 +51,16 @@ livenessProbe:
     port: 8080
   initialDelaySeconds: 90
   periodSeconds: 20
+  timeoutSeconds: 5
+  failureThreshold: 5
+startupProbe:
+  httpGet:
+    path: /healthz
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30
 podAnnotations:
   prometheus.io/scrape: "true"
   prometheus.io/port: "8080"
