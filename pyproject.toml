@@ -5,6 +5,7 @@ description = "Production-pattern ML inference platform demo"
 readme = "README.md"
 requires-python = ">=3.12.13,<=3.13.7"
 dependencies = [
+    "pre-commit>=4.6.0",
     "pytest>=9.0.3",
     "requests>=2.34.2",
     "ruff>=0.15.12",
