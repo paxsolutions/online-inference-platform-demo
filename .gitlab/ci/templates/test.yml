@@ -10,16 +10,12 @@
 .test:
   stage: test
   image: python:${PYTHON_VERSION}
-  variables:
-    WORKING_DIRECTORY: "services/inference-api"
-    REQUIREMENTS_FILE: "requirements.txt"
-    TEST_COMMAND: "pytest tests/ -v --junit-xml=report.xml"
   before_script:
-    - cd ${WORKING_DIRECTORY} && pip install --quiet -r ${REQUIREMENTS_FILE}
+    - cd services/inference-api && pip install --quiet -r requirements.txt
   script:
-    - ${TEST_COMMAND}
+    - pytest tests/ -v --junit-xml=report.xml
   artifacts:
     when: always
     reports:
-      junit: "${WORKING_DIRECTORY}/report.xml"
+      junit: "services/inference-api/report.xml"
     expire_in: 30 days
