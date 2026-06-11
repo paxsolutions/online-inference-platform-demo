@@ -53,7 +53,7 @@ export TG_BUCKET="tf-state-${AWS_ACCOUNT_ID}-${AWS_DEFAULT_REGION}"
 ```bash
 # Deploy all stacks in dependency order (eks → eks-addons → gitops)
 cd infrastructure/live/dev
-terragrunt run-all apply
+terragrunt run --all apply
 ```
 
 ### Deploy Individual Stacks
@@ -61,15 +61,15 @@ terragrunt run-all apply
 ```bash
 # 1. EKS cluster (VPC, node groups, security groups)
 cd infrastructure/live/dev/eks
-terragrunt apply
+terragrunt run apply
 
 # 2. EKS add-ons (ALB Controller, KEDA, Metrics Server)
 cd infrastructure/live/dev/eks-addons
-terragrunt apply
+terragrunt run apply
 
 # 3. GitOps (ArgoCD + Application manifest)
 cd infrastructure/live/dev/gitops
-terragrunt apply
+terragrunt run apply
 ```
 
 ### Get kubeconfig
@@ -119,13 +119,13 @@ kubectl delete ingress online-inference -n inference
 
 ```bash
 # Dev
-cd infrastructure/live/dev && terragrunt run-all apply
+cd infrastructure/live/dev && terragrunt run --all apply
 
 # Staging (after dev is stable)
-cd infrastructure/live/staging && terragrunt run-all apply
+cd infrastructure/live/staging && terragrunt run --all apply
 
 # Production (manual promotion only)
-cd infrastructure/live/prod && terragrunt run-all apply
+cd infrastructure/live/prod && terragrunt run --all apply
 ```
 
 ### Terragrunt Commands
@@ -133,18 +133,18 @@ cd infrastructure/live/prod && terragrunt run-all apply
 ```bash
 # Plan all stacks in an environment
 cd infrastructure/live/dev
-terragrunt run-all plan
+terragrunt run --all plan
 
 # Apply a single stack
 cd infrastructure/live/dev/eks
-terragrunt apply
+terragrunt run apply
 
 # Destroy all stacks (reverse dependency order)
 cd infrastructure/live/dev
-terragrunt run-all destroy
+terragrunt run --all destroy
 
 # Destroy with exclusion
-terragrunt run-all apply --terragrunt-exclude-dir infrastructure/live/dev/gitops
+terragrunt run --all apply --exclude-dir infrastructure/live/dev/gitops
 ```
 
 ## GitOps Integration
@@ -250,7 +250,7 @@ aws elbv2 describe-load-balancers --query "LoadBalancers[?contains(DNSName, 'onl
   xargs -I{} aws elbv2 delete-load-balancer --load-balancer-arn {}
 
 # Wait ~30 seconds, then retry destroy
-terragrunt destroy
+terragrunt run destroy
 ```
 
 ## CI/CD Integration
@@ -273,5 +273,5 @@ jobs:
       - uses: gruntwork-io/terragrunt-action@v2
       - run: |
           cd infrastructure/live/dev
-          terragrunt run-all plan
+          terragrunt run --all plan
 ```
