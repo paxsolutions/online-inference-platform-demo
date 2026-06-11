@@ -14,6 +14,7 @@
     REQUIREMENTS_FILE: "requirements.txt"
     TEST_COMMAND: "pytest tests/ -v --junit-xml=report.xml"
   before_script:
+    - echo "Working directory: ${WORKING_DIRECTORY}"
     - cd "${WORKING_DIRECTORY}"
     - pip install --quiet -r "${REQUIREMENTS_FILE}"
   script:
