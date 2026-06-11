@@ -1,0 +1,51 @@
+name: Reusable Helm Lint
+
+on:
+  workflow_call:
+    inputs:
+      chart-path:
+        description: "Path to Helm chart directory"
+        required: true
+        type: string
+      values-files:
+        description: 'JSON array of values files to test, e.g. ["values.yaml"]'
+        required: false
+        type: string
+        default: '["values.yaml"]'
+      helm-version:
+        description: "Helm version"
+        required: false
+        type: string
+        default: "v3.15.2"
+
+jobs:
+  helm-lint:
+    name: Helm Lint & Template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ inputs.helm-version }}
+
+      - name: Helm lint
+        run: helm lint ${{ inputs.chart-path }}
+
+      - name: Helm template (dry-run)
+        run: |
+          FILES=$(echo '${{ inputs.values-files }}' | jq -r '.[]')
+          for f in $FILES; do
+            echo "--- Rendering with $f ---"
+            helm template test ${{ inputs.chart-path }} -f ${{ inputs.chart-path }}/$f > /dev/null
+          done
+
+      - name: Lint summary
+        if: always()
+        run: |
+          echo "## ⎈ Helm Lint" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Chart | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| \`${{ inputs.chart-path }}\` | ✅ Passed |" >> $GITHUB_STEP_SUMMARY

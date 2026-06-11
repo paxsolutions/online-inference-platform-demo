@@ -61,6 +61,22 @@ startupProbe:
   periodSeconds: 10
   timeoutSeconds: 5
   failureThreshold: 30
+rollout:
+  enabled: true
+  analysisStartingStep: 2
+  steps:
+    - setWeight: 20
+    - pause: { duration: 30s }
+    - setWeight: 50
+    - pause: { duration: 30s }
+    - setWeight: 80
+    - pause: { duration: 30s }
+  analysis:
+    interval: 30s
+    count: 3
+    successThreshold: "0.95"
+    maxLatencyMs: "3000"
+    failureLimit: 1
 podAnnotations:
   prometheus.io/scrape: "true"
   prometheus.io/port: "8080"

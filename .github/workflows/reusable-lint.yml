@@ -1,0 +1,53 @@
+name: Reusable Lint
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: "Python version for linting"
+        required: false
+        type: string
+        default: "3.12"
+      ruff-version:
+        description: "Ruff version to install"
+        required: false
+        type: string
+        default: "0.4.10"
+      paths:
+        description: 'JSON array of paths to lint, e.g. ["services/api/app", "services/api/tests"]'
+        required: true
+        type: string
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: Install ruff
+        run: pip install "ruff==${{ inputs.ruff-version }}"
+
+      - name: Run ruff
+        run: |
+          PATHS=$(echo '${{ inputs.paths }}' | jq -r '.[]')
+          FAILED=0
+          SUMMARY=""
+          for path in $PATHS; do
+            if ruff check "$path"; then
+              SUMMARY="${SUMMARY}| \`${path}\` | ✅ Passed |\n"
+            else
+              SUMMARY="${SUMMARY}| \`${path}\` | ❌ Failed |\n"
+              FAILED=1
+            fi
+          done
+          echo "## 🔍 Lint Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Path | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo -e "$SUMMARY" >> $GITHUB_STEP_SUMMARY
+          exit $FAILED

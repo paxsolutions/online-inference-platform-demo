@@ -79,6 +79,22 @@ variable "aws_lbc_version" {
 }
 
 # ============================================================
+# Argo Rollouts
+# ============================================================
+
+variable "enable_argo_rollouts" {
+  description = "Enable Argo Rollouts for progressive delivery (canary/blue-green)"
+  type        = bool
+  default     = true
+}
+
+variable "argo_rollouts_version" {
+  description = "Helm chart version for Argo Rollouts"
+  type        = string
+  default     = "2.35.1"
+}
+
+# ============================================================
 # KEDA
 # ============================================================
 
