@@ -11,10 +11,10 @@
   stage: test
   image: python:${PYTHON_VERSION}
   variables:
+    WORKING_DIRECTORY: "services/inference-api"
     REQUIREMENTS_FILE: "requirements.txt"
     TEST_COMMAND: "pytest tests/ -v --junit-xml=report.xml"
   before_script:
-    - ls -al
     - cd "${WORKING_DIRECTORY}"
     - pip install --quiet -r "${REQUIREMENTS_FILE}"
   script:

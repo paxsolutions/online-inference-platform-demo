@@ -57,8 +57,6 @@ helm-lint:
 test:
   extends: .test
   needs: ["lint"]
-  variables:
-    WORKING_DIRECTORY: "services/inference-api"
 
 # =============================================================================
 # Stage: build (main branch only)
