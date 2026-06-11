@@ -11,11 +11,11 @@
   stage: test
   image: python:${PYTHON_VERSION}
   before_script:
-    - cd services/inference-api && pip install --quiet -r requirements.txt
+    - cd ${CI_PROJECT_DIR}/services/inference-api && pip install --quiet -r requirements.txt
   script:
     - pytest tests/ -v --junit-xml=report.xml
   artifacts:
     when: always
     reports:
-      junit: "services/inference-api/report.xml"
+      junit: "${CI_PROJECT_DIR}/services/inference-api/report.xml"
     expire_in: 30 days
