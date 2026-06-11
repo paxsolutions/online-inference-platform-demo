@@ -1,0 +1,71 @@
+name: Reusable Test
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: "Python version"
+        required: false
+        type: string
+        default: "3.12"
+      working-directory:
+        description: "Directory containing the service code"
+        required: true
+        type: string
+      requirements-file:
+        description: "Path to requirements.txt relative to working-directory"
+        required: false
+        type: string
+        default: "requirements.txt"
+      test-command:
+        description: "Test command to run"
+        required: false
+        type: string
+        default: "pytest tests/ -v --junit-xml=/tmp/pytest-results.xml"
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+          cache: "pip"
+          cache-dependency-path: ${{ inputs.working-directory }}/${{ inputs.requirements-file }}
+
+      - name: Install dependencies
+        run: pip install -r ${{ inputs.requirements-file }}
+
+      - name: Run tests
+        run: ${{ inputs.test-command }}
+
+      - name: Test summary
+        if: always()
+        run: |
+          echo "## 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          python3 - << 'PYEOF'
+          import xml.etree.ElementTree as ET, os
+          try:
+              tree = ET.parse('/tmp/pytest-results.xml')
+              root = tree.getroot()
+              suite = root if root.tag == 'testsuite' else root.find('testsuite')
+              tests    = int(suite.get('tests',    0))
+              failures = int(suite.get('failures', 0))
+              errors   = int(suite.get('errors',   0))
+              skipped  = int(suite.get('skipped',  0))
+              passed   = tests - failures - errors - skipped
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+                  f.write('| Total | ✅ Passed | ❌ Failed | ⚠️ Errors | ⏭️ Skipped |\n')
+                  f.write('|-------|-----------|-----------|-----------|------------|\n')
+                  f.write(f'| {tests} | {passed} | {failures} | {errors} | {skipped} |\n')
+          except Exception as e:
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+                  f.write(f'Could not parse results: {e}\n')
+          PYEOF

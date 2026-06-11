@@ -1,6 +1,6 @@
-{{- if not .Values.rollout.enabled }}
-apiVersion: apps/v1
-kind: Deployment
+{{- if .Values.rollout.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
   name: {{ include "online-inference.fullname" . }}
   labels: {{- include "online-inference.labels" . | nindent 4 }}
@@ -8,9 +8,23 @@ metadata:
     argocd.argoproj.io/sync-wave: "3"
 spec:
   replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: 3
   selector:
     matchLabels:
       {{- include "online-inference.selectorLabels" . | nindent 6 }}
+  strategy:
+    canary:
+      canaryService: {{ include "online-inference.fullname" . }}-canary
+      stableService: {{ include "online-inference.fullname" . }}
+      steps:
+        {{- toYaml .Values.rollout.steps | nindent 8 }}
+      analysis:
+        templates:
+          - templateName: {{ include "online-inference.fullname" . }}-success-rate
+        startingStep: {{ .Values.rollout.analysisStartingStep }}
+        args:
+          - name: service-name
+            value: {{ include "online-inference.fullname" . }}-canary
   template:
     metadata:
       labels: {{- include "online-inference.selectorLabels" . | nindent 8 }}
