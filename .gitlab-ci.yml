@@ -1,0 +1,176 @@
+# =============================================================================
+# GitLab CI/CD Pipeline — Online Inference Platform
+#
+# Structure mirrors the GitHub Actions pipeline:
+#   lint → test → build → auto-tag → release → gitops-writeback
+#
+# Reusable templates live in .gitlab/ci/templates/ and are included below.
+# New services only need to add jobs that `extends:` the templates.
+#
+# Required CI/CD Variables (Settings → CI/CD → Variables):
+#   GITLAB_TOKEN  — Project access token with write_repository scope (for GitOps write-back)
+# =============================================================================
+
+include:
+  - local: ".gitlab/ci/templates/lint.yml"
+  - local: ".gitlab/ci/templates/test.yml"
+  - local: ".gitlab/ci/templates/build.yml"
+  - local: ".gitlab/ci/templates/helm-lint.yml"
+  - local: ".gitlab/ci/templates/release.yml"
+
+stages:
+  - lint
+  - test
+  - build
+  - tag
+  - release
+  - deploy
+
+# ---------------------------------------------------------------------------
+# Variables
+# ---------------------------------------------------------------------------
+variables:
+  PYTHON_VERSION: "3.12"
+
+# =============================================================================
+# Stage: lint
+# =============================================================================
+
+lint:
+  extends: .lint
+  variables:
+    LINT_PATHS: >-
+      services/inference-api/app
+      services/inference-api/tests
+      services/inference-worker/worker.py
+
+helm-lint:
+  extends: .helm-lint
+  variables:
+    CHART_PATH: "charts/online-inference"
+
+# =============================================================================
+# Stage: test
+# =============================================================================
+
+test:
+  extends: .test
+  needs: ["lint"]
+  variables:
+    WORKING_DIRECTORY: "services/inference-api"
+
+# =============================================================================
+# Stage: build (main branch only)
+# =============================================================================
+
+build-api:
+  extends: .docker-build
+  needs: ["test"]
+  variables:
+    IMAGE_NAME: "inference-api"
+    DOCKER_CONTEXT: "./services/inference-api"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+build-worker:
+  extends: .docker-build
+  needs: ["test"]
+  variables:
+    IMAGE_NAME: "inference-worker"
+    DOCKER_CONTEXT: "./services/inference-worker"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# =============================================================================
+# Stage: tag (main branch only, after build)
+# =============================================================================
+
+auto-tag:
+  stage: tag
+  image: alpine:3.19
+  needs: ["build-api", "build-worker"]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  before_script:
+    - apk add --no-cache git
+    - git config user.name "gitlab-ci[bot]"
+    - git config user.email "gitlab-ci[bot]@users.noreply.gitlab.com"
+    - git remote set-url origin "https://oauth2:${GITLAB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+    - git fetch --tags
+  script:
+    - |
+      # Get the latest tag and compute the next patch version
+      LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+      echo "Latest tag: ${LATEST_TAG}"
+
+      # Parse semver components
+      MAJOR=$(echo "$LATEST_TAG" | sed 's/^v//' | cut -d. -f1)
+      MINOR=$(echo "$LATEST_TAG" | sed 's/^v//' | cut -d. -f2)
+      PATCH=$(echo "$LATEST_TAG" | sed 's/^v//' | cut -d. -f3)
+
+      # Bump patch
+      NEW_PATCH=$((PATCH + 1))
+      NEW_TAG="v${MAJOR}.${MINOR}.${NEW_PATCH}"
+      echo "New tag: ${NEW_TAG}"
+
+      git tag -a "${NEW_TAG}" -m "Release ${NEW_TAG}"
+      git push origin "${NEW_TAG}"
+
+      echo "TAG=${NEW_TAG}" >> tag.env
+  artifacts:
+    reports:
+      dotenv: tag.env
+
+# =============================================================================
+# Stage: release (tag push only)
+# =============================================================================
+
+release:
+  extends: .release
+
+release-build-api:
+  extends: .docker-build
+  stage: release
+  needs: ["release"]
+  variables:
+    IMAGE_NAME: "inference-api"
+    DOCKER_CONTEXT: "./services/inference-api"
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  script:
+    - |
+      FULL_IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}"
+      docker build \
+        --file "${DOCKER_CONTEXT}/${DOCKERFILE}" \
+        --tag "${FULL_IMAGE}:${CI_COMMIT_TAG}" \
+        "${DOCKER_CONTEXT}"
+      docker push "${FULL_IMAGE}:${CI_COMMIT_TAG}"
+
+release-build-worker:
+  extends: .docker-build
+  stage: release
+  needs: ["release"]
+  variables:
+    IMAGE_NAME: "inference-worker"
+    DOCKER_CONTEXT: "./services/inference-worker"
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  script:
+    - |
+      FULL_IMAGE="${CI_REGISTRY_IMAGE}/${IMAGE_NAME}"
+      docker build \
+        --file "${DOCKER_CONTEXT}/${DOCKERFILE}" \
+        --tag "${FULL_IMAGE}:${CI_COMMIT_TAG}" \
+        "${DOCKER_CONTEXT}"
+      docker push "${FULL_IMAGE}:${CI_COMMIT_TAG}"
+
+# =============================================================================
+# Stage: deploy (GitOps write-back on tag push)
+# =============================================================================
+
+gitops-writeback:
+  extends: .gitops-writeback
+  needs: ["release-build-api", "release-build-worker"]
+  variables:
+    HELM_CHART_PATH: "charts/online-inference"
+    IMAGE_TAG_PATHS: ".image.tag .worker.image.tag"

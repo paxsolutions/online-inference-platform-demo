@@ -1,0 +1,25 @@
+# ---------------------------------------------------------------------------
+# Reusable Helm lint & template template
+# Usage:
+#   helm-lint:
+#     extends: .helm-lint
+#     variables:
+#       CHART_PATH: "charts/my-service"
+# ---------------------------------------------------------------------------
+
+.helm-lint:
+  stage: lint
+  image:
+    name: alpine/helm:${HELM_VERSION:-3.15.2}
+    entrypoint: [""]
+  variables:
+    CHART_PATH: ""
+    VALUES_FILES: "values.yaml"
+  script:
+    - helm lint "${CHART_PATH}"
+    - |
+      for f in ${VALUES_FILES}; do
+        echo "--- Rendering with ${f} ---"
+        helm template test "${CHART_PATH}" -f "${CHART_PATH}/${f}" > /dev/null
+      done
+      echo "✅ Helm lint and template passed"

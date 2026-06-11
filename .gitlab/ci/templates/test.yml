@@ -1,0 +1,26 @@
+# ---------------------------------------------------------------------------
+# Reusable test template
+# Usage:
+#   test:
+#     extends: .test
+#     variables:
+#       WORKING_DIRECTORY: "services/my-api"
+# ---------------------------------------------------------------------------
+
+.test:
+  stage: test
+  image: python:${PYTHON_VERSION:-3.12}-slim
+  variables:
+    WORKING_DIRECTORY: ""
+    REQUIREMENTS_FILE: "requirements.txt"
+    TEST_COMMAND: "pytest tests/ -v --junit-xml=report.xml"
+  before_script:
+    - cd "${WORKING_DIRECTORY}"
+    - pip install --quiet -r "${REQUIREMENTS_FILE}"
+  script:
+    - ${TEST_COMMAND}
+  artifacts:
+    when: always
+    reports:
+      junit: "${WORKING_DIRECTORY}/report.xml"
+    expire_in: 30 days

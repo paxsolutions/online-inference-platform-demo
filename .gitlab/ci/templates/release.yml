@@ -1,0 +1,66 @@
+# ---------------------------------------------------------------------------
+# Reusable release template (runs on tag push)
+# Usage:
+#   release:
+#     extends: .release
+# ---------------------------------------------------------------------------
+
+.release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  script:
+    - |
+      LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+      if [ -z "$LAST_TAG" ]; then
+        CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges)
+      else
+        CHANGELOG=$(git log "$LAST_TAG"..HEAD --pretty=format:"- %s (%h)" --no-merges)
+      fi
+      echo "CHANGELOG<<EOF" >> release.env
+      echo "$CHANGELOG" >> release.env
+      echo "EOF" >> release.env
+  release:
+    tag_name: $CI_COMMIT_TAG
+    name: "Release $CI_COMMIT_TAG"
+    description: "$CHANGELOG"
+
+# ---------------------------------------------------------------------------
+# Reusable GitOps write-back template
+# Updates Helm values.yaml with new image tag on tag push
+# Usage:
+#   gitops-writeback:
+#     extends: .gitops-writeback
+#     variables:
+#       HELM_CHART_PATH: "charts/my-service"
+#       IMAGE_TAG_PATHS: ".image.tag .worker.image.tag"
+# ---------------------------------------------------------------------------
+
+.gitops-writeback:
+  stage: deploy
+  image: alpine:3.19
+  variables:
+    HELM_CHART_PATH: ""
+    HELM_VALUES_FILE: "values.yaml"
+    IMAGE_TAG_PATHS: ".image.tag"
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  before_script:
+    - apk add --no-cache git yq
+    - git config user.name "gitlab-ci[bot]"
+    - git config user.email "gitlab-ci[bot]@users.noreply.gitlab.com"
+    - git remote set-url origin "https://oauth2:${GITLAB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+    - git fetch origin main
+    - git checkout main
+  script:
+    - |
+      VERSION="${CI_COMMIT_TAG}"
+      VALUES="${HELM_CHART_PATH}/${HELM_VALUES_FILE}"
+      for yqpath in ${IMAGE_TAG_PATHS}; do
+        yq e "${yqpath} = \"${VERSION}\"" -i "${VALUES}"
+      done
+      git add "${VALUES}"
+      git diff --cached --quiet && echo "No changes" && exit 0
+      git commit -m "chore: bump image tags to ${VERSION} [skip ci]"
+      git push origin main

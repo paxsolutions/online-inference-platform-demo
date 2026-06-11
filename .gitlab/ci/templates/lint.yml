@@ -1,0 +1,30 @@
+# ---------------------------------------------------------------------------
+# Reusable lint template
+# Usage:
+#   lint:
+#     extends: .lint
+#     variables:
+#       LINT_PATHS: "services/my-api/app services/my-api/tests"
+# ---------------------------------------------------------------------------
+
+.lint:
+  stage: lint
+  image: python:${PYTHON_VERSION:-3.12}-slim
+  variables:
+    RUFF_VERSION: "0.4.10"
+    LINT_PATHS: ""
+  before_script:
+    - pip install --quiet "ruff==${RUFF_VERSION}"
+  script:
+    - |
+      FAILED=0
+      for path in ${LINT_PATHS}; do
+        echo "--- Linting $path ---"
+        if ruff check "$path"; then
+          echo "✅ $path passed"
+        else
+          echo "❌ $path failed"
+          FAILED=1
+        fi
+      done
+      exit $FAILED
