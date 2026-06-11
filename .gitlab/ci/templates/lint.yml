@@ -9,7 +9,7 @@
 
 .lint:
   stage: lint
-  image: python:${PYTHON_VERSION:3.13.7}-slim
+  image: python:${PYTHON_VERSION}
   variables:
     RUFF_VERSION: "0.4.10"
     LINT_PATHS: ""

@@ -10,7 +10,7 @@
 .helm-lint:
   stage: lint
   image:
-    name: alpine/helm:${HELM_VERSION:-3.15.2}
+    name: alpine/helm:${HELM_VERSION}
     entrypoint: [""]
   variables:
     CHART_PATH: ""

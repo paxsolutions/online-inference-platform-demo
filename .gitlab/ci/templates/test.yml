@@ -9,7 +9,7 @@
 
 .test:
   stage: test
-  image: python:${PYTHON_VERSION:3.13.7}-slim
+  image: python:${PYTHON_VERSION}
   variables:
     WORKING_DIRECTORY: ""
     REQUIREMENTS_FILE: "requirements.txt"
