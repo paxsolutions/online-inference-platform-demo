@@ -155,5 +155,5 @@ variable "enable_cluster_autoscaler" {
 variable "cluster_autoscaler_version" {
   description = "Helm chart version for Cluster Autoscaler"
   type        = string
-  default     = "9.36.0"
+  default     = "9.43.0"
 }

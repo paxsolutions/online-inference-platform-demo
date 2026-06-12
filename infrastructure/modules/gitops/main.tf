@@ -24,23 +24,28 @@ resource "helm_release" "argocd" {
   }
 }
 
-# ArgoCD Application for the inference platform
-resource "kubectl_manifest" "argocd_application" {
+# Wait for ArgoCD CRDs to be registered before applying Application resources
+resource "time_sleep" "wait_for_argocd_crds" {
   count = var.enable_argocd && var.create_argocd_application ? 1 : 0
 
-  yaml_body = templatefile("${path.module}/templates/argocd-application.yaml", {
-    name       = var.argocd_app_name
-    namespace  = var.argocd_namespace
-    repo_url   = var.gitops_repo_url
+  create_duration = "30s"
+  depends_on      = [helm_release.argocd]
+}
+
+# Bootstrap app-of-apps: Terraform only creates this one Application.
+# It points to deploy/argocd/ in the repo, which manages all other Applications via GitOps.
+resource "kubectl_manifest" "argocd_app_of_apps" {
+  count = var.enable_argocd && var.create_argocd_application ? 1 : 0
+
+  yaml_body = templatefile("${path.module}/templates/argocd-app-of-apps.yaml", {
+    repo_url    = var.gitops_repo_url
     repo_branch = var.gitops_repo_branch
-    chart_path = var.helm_chart_path
-    target_namespace = var.app_target_namespace
-    values_file = var.helm_values_file
+    apps_path   = var.argocd_apps_path
   })
 
   wait = true
 
-  depends_on = [helm_release.argocd]
+  depends_on = [time_sleep.wait_for_argocd_crds]
 }
 
 # FluxCD Installation

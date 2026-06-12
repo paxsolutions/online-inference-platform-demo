@@ -43,9 +43,15 @@ variable "argocd_app_name" {
 }
 
 variable "argocd_namespace" {
-  description = "Namespace for ArgoCD Application"
+  description = "Target namespace where the application is deployed"
   type        = string
   default     = "inference"
+}
+
+variable "argocd_apps_path" {
+  description = "Path in the repo that the app-of-apps Application watches (contains Application manifests)"
+  type        = string
+  default     = "deploy/argocd"
 }
 
 # FluxCD Variables

@@ -208,6 +208,7 @@ Deploys cluster add-ons via Helm:
 - Metrics Server
 - EBS CSI Driver
 - Cluster Autoscaler
+- Argo Rollouts (progressive delivery controller)
 
 ### GitOps Module (`modules/gitops`)
 

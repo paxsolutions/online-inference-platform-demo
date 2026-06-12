@@ -81,5 +81,7 @@ inputs = {
   enable_aws_lbc            = true
   enable_metrics_server     = true
   enable_cluster_autoscaler = true
+  enable_keda               = true
+  enable_argo_rollouts      = true
   enable_external_dns       = false  # enable if you have a Route53 hosted zone
 }
